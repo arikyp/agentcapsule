@@ -1,0 +1,11 @@
+-----BEGIN LMCODEC-----
+version: 1
+model_fingerprint: cfc75d7b54524f7a09a90454d89768aa4eb75b17546607c376760e2fc9d8f851
+settings: TOT=65536; TOPK=0; SHAPE_UNIFORM_MIX=0.80000000000000004; TEMPERATURE=1.25
+
+ps67RmnxblBcFi6doF u8L48tsqkjHFsIdAXu2KpscZt2108atBs8yL0IXqNZnoLeZzWlYhKUlx18YRK
+0sc738Scl C9jcr.u1CAmo6v38UPs34 G1Nr OXjJj.e3ypIpNc4hLZCgxRLmepoboles rhM14ed2vP
+FvbpJse ZvOnt3sRNvMH UFmeYZqi3v 4e2a lIk2WtgyrreOokjRxXsj9JdihyuWaXMzPKeqPyI1d7L
+Msj.1cdREhPJaMXuDcuSi4AtHppUrevKe SGZnAxRDVrpJOMag6lKcL3R L suEZpAA IDtMNeqUJMAG
+eUgkaxWNZDqMn 1Nt0pjfhVTJYzdbip 6Zntad kMP
+-----END LMCODEC-----

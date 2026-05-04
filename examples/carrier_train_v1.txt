@@ -1,0 +1,9 @@
+the quick brown fox jumps over the lazy dog 0123456789
+alpha beta gamma delta epsilon zeta eta theta iota kappa
+copy paste transport needs clear markers checksums and versions
+lossless transport matters more than pretty prose in this version
+every decoded payload must match the original byte stream exactly
+range coding maps bits into symbols while the model shapes style
+the language modem carries bytes through ordinary looking text
+small messages move through notes memos logs and chat windows
+model shaped text is only the envelope the payload remains exact

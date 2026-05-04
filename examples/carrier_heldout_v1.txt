@@ -1,0 +1,3 @@
+engineers test empty files tiny files and larger binary payloads
+deterministic fixtures make drift visible before it reaches users
+the carrier prefers letters spaces numbers and calm punctuation
