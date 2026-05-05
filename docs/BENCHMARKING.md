@@ -21,6 +21,14 @@ Runtime fields such as timestamp and encode/decode seconds are expected to vary
 between runs. Other fields should remain deterministic for the same payload,
 model, settings, and git revision.
 
+## JSON Contract
+
+Benchmark JSON currently uses `schema_version: 1`. The documented schema is
+committed at [schemas/benchmark_result_v1.json](../schemas/benchmark_result_v1.json).
+
+The repository does not depend on a JSON Schema validator at runtime. The schema
+is a stable contract for downstream tooling and future validation tests.
+
 ## Compare Models
 
 Compare the fixed carrier with an order-1 n-gram carrier and write JSON:

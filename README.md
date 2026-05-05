@@ -1,5 +1,7 @@
 # LMCodec
 
+[![CI](https://github.com/arikyp/lmcodec/actions/workflows/ci.yml/badge.svg)](https://github.com/arikyp/lmcodec/actions/workflows/ci.yml)
+
 LMCodec is an experimental deterministic codec that maps arbitrary bytes into
 copy/paste-safe text using language-model probability distributions as the
 carrier shape.
@@ -250,6 +252,10 @@ Pinned Transformer fixture metrics for `bytes(range(256))` with
 - [docs/CARRIER_QUALITY.md](docs/CARRIER_QUALITY.md): carrier quality metrics
   and trade-offs.
 - [docs/TESTING.md](docs/TESTING.md): stress/property test strategy.
+- [schemas/benchmark_result_v1.json](schemas/benchmark_result_v1.json):
+  benchmark JSON schema contract.
+- [CHANGELOG.md](CHANGELOG.md): release notes.
+- [LICENSE](LICENSE): current license status.
 
 ## Golden V1 Fixtures
 
