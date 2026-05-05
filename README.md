@@ -1,103 +1,143 @@
 # LMCodec
 
-LMCodec is a planned lossless text transport codec. It converts arbitrary bytes
-into plausible-looking text and reconstructs the original bytes bit-perfectly.
+LMCodec is an experimental deterministic codec that maps arbitrary bytes into
+copy/paste-safe text using language-model probability distributions as the
+carrier shape.
 
 The codec uses a language model as the probability source and a deterministic
-range coder as the bit-to-symbol mapping layer. The practical goal is a
-"text-only USB stick": if a system can preserve copy/pasted text, it can carry
-binary data through LMCodec.
+range coder as the reversible bit-to-symbol mapping layer. Decode repeats the
+same model, shaping, and quantization steps to recover the original framed
+payload bytes.
 
-## Project Status
+## Current Status
 
-V1 research prototype implemented.
+LMCodec V1 is a research prototype.
 
-Current implementation includes:
+- The fixed 64-symbol carrier is the stable default path.
+- The order-1 n-gram carrier is experimental, deterministic, and pinned as a
+  V1 fixture.
+- The Transformer-style carrier is experimental, deterministic, and pinned as a
+  V1 fixture.
+- Golden fixtures are committed for fixed, n-gram, and Transformer carriers.
+- Runtime encode/decode is dependency-free Python.
 
-- Deterministic quantizer.
-- Deterministic probability shaping before quantization.
-- Integer arithmetic coder.
-- Binary frame with magic, payload length, and CRC32.
-- Copy/paste armour.
-- Fixed 64-symbol carrier model.
-- Deterministic n-gram model backend with JSON serialization.
-- Experimental deterministic Transformer-style carrier backend.
-- Pinned golden fixtures for fixed, n-gram, and Transformer carriers.
-- File encode/decode CLI.
-- Unit and end-to-end tests.
+## What Works
 
-The fixed carrier remains the stable default. The Transformer carrier is
-experimental but pinned and reproducible as a V1 fixture.
+- Byte-perfect encode/decode roundtrip for the tested payload sizes and demos.
+- Deterministic output for identical payload, model, and settings.
+- Model fingerprint checks before decode.
+- Copy/paste armour with version, model fingerprint, and settings.
+- CLI file encode/decode.
+- CRC32 corruption detection inside the payload frame.
+- Unit, stress, golden, and end-to-end verification tests.
 
-The implementation plan is in [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md).
-The V1 release checkpoint is summarized in [docs/V1_RELEASE.md](docs/V1_RELEASE.md).
-Start with [docs/QUICKSTART.md](docs/QUICKSTART.md) for installed CLI usage,
-and [docs/LIMITATIONS.md](docs/LIMITATIONS.md) for V1 boundaries.
+## What Does Not Yet Work
 
-## V1 Priorities
+- Semantically meaningful prose generation.
+- Production privacy or encryption.
+- Steganography-grade secrecy.
+- Compression superiority over base64.
+- Large-file archival confidence.
+- GPU-scale model training in the runtime path.
 
-- Lossless byte-for-byte roundtrip.
-- Deterministic output for identical input, model, and settings.
-- Simple implementation with minimal dependencies.
-- Clear armour format for copy/paste transport.
-- Golden regression fixture to catch drift.
+## Quickstart
 
-## Non-Goals
+Use a virtual environment for local development:
 
-- Maximum compression ratio.
-- GPU-first model execution.
-- Semantically meaningful generated text.
-- Complex model architecture before the arithmetic layer is proven.
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -e .
+```
 
-## CLI
+Encode and decode a file with the default fixed carrier:
 
 ```bash
 PYTHONPATH=src python3 -m lmcodec.cli encode --in payload.bin --out message.txt --wrap 80
-PYTHONPATH=src python3 -m lmcodec.cli decode --in message.txt --out payload.bin
+PYTHONPATH=src python3 -m lmcodec.cli decode --in message.txt --out recovered.bin
+cmp payload.bin recovered.bin
 ```
 
-Train and use a deterministic n-gram model:
-
-```bash
-PYTHONPATH=src python3 -m lmcodec.cli train --data corpus.txt --out model.json --order 1 --uniform-mix 0.75
-PYTHONPATH=src python3 -m lmcodec.cli encode --model model.json --in payload.bin --out message.txt --wrap 80
-PYTHONPATH=src python3 -m lmcodec.cli decode --model model.json --in message.txt --out payload.bin
-```
-
-Train and use the experimental Transformer-style carrier:
+Train and use a deterministic order-1 n-gram carrier:
 
 ```bash
 PYTHONPATH=src python3 -m lmcodec.cli train \
-  --model-type transformer \
-  --data examples/carrier_train_v2.txt \
-  --out transformer.json \
-  --block-size 8 \
-  --d-model 8 \
-  --ff-dim 12
+  --data examples/carrier_train_v1.txt \
+  --out ngram.json \
+  --order 1 \
+  --uniform-mix 0.75
 PYTHONPATH=src python3 -m lmcodec.cli encode \
-  --model transformer.json \
+  --model ngram.json \
+  --in payload.bin \
+  --out message.txt \
+  --wrap 80
+PYTHONPATH=src python3 -m lmcodec.cli decode \
+  --model ngram.json \
+  --in message.txt \
+  --out recovered.bin
+cmp payload.bin recovered.bin
+```
+
+Use the pinned experimental Transformer fixture:
+
+```bash
+PYTHONPATH=src python3 -m lmcodec.cli encode \
+  --model tests/fixtures/transformer_model_v1.json \
   --in payload.bin \
   --out message.txt \
   --wrap 80 \
-  --shape-uniform-mix 0.85 \
-  --temperature 1.5
-PYTHONPATH=src python3 -m lmcodec.cli decode --model transformer.json --in message.txt --out payload.bin
+  --shape-uniform-mix 0.80 \
+  --temperature 1.25 \
+  --max-steps 100000
+PYTHONPATH=src python3 -m lmcodec.cli decode \
+  --model tests/fixtures/transformer_model_v1.json \
+  --in message.txt \
+  --out recovered.bin
+cmp payload.bin recovered.bin
 ```
 
-The current Transformer backend is intentionally small: a deterministic causal
-attention feature extractor with a trained output head. It proves the model
-interface, serialization, fingerprinting, and codec roundtrip path before full
-end-to-end Transformer backprop is added.
+## Architecture
 
-Use `--uniform-mix` to control how aggressively the trained distribution is
-flattened toward uniform. Higher values improve transport capacity and reduce
-the chance of hitting the encode convergence limit. `--order 1 --uniform-mix
-0.75` is the current recommended non-uniform demo setting.
+LMCodec has five core layers:
 
-If needed, encode accepts `--max-steps` to raise the deterministic convergence
-limit for heavily skewed models.
+- Frame: wraps the payload as `magic || payload_len || crc32 || payload`.
+- Range coder: provides the reversible bit-to-symbol mapping.
+- LM probabilities: provide the next-token carrier distribution.
+- Quantizer: converts floating-point probabilities into deterministic integer
+  CDFs for range coding.
+- Armour: stores carrier text with version, model fingerprint, and settings in
+  a copy/paste-safe text block.
 
-## Tests
+Encoding:
+
+```text
+payload bytes
+  -> binary frame
+  -> framed bits
+  -> source RangeDecoder over framed bits
+  -> LM probabilities + shaping + quantization
+  -> carrier token choices
+  -> mirror RangeEncoder stopping check
+  -> armoured text
+```
+
+Decoding:
+
+```text
+armoured text
+  -> parse and check model fingerprint
+  -> carrier tokens
+  -> same LM probabilities + shaping + quantization
+  -> RangeEncoder reconstructs framed bits
+  -> frame parser validates magic, length, and CRC32
+  -> payload bytes
+```
+
+The stopping condition is intentionally conservative. Range decoders use
+lookahead, so encode does not stop based on a naive "all bits consumed" rule.
+Instead, LMCodec keeps a mirror range encoder and stops only when its finalized
+preview has the framed payload bits as a prefix.
+
+## Verification
 
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests
@@ -115,7 +155,7 @@ Installed CLI release check:
 sh scripts/release_check.sh
 ```
 
-## Demo
+## Demo And Experiment Scripts
 
 ```bash
 sh scripts/demo_roundtrip.sh
@@ -133,13 +173,14 @@ Run the pinned Transformer carrier demo:
 sh scripts/demo_transformer.sh
 ```
 
-Create deterministic train/held-out corpus splits:
+Create deterministic carrier corpora and train/held-out splits:
 
 ```bash
 scripts/build_carrier_corpus.py \
   --out examples/carrier_corpus_v2.txt \
   --lines 5000 \
-  --seed 42
+  --seed 42 \
+  --domain mixed
 scripts/split_corpus.py \
   --input examples/carrier_corpus_v2.txt \
   --train-out examples/carrier_train_v2.txt \
@@ -148,91 +189,38 @@ scripts/split_corpus.py \
   --filter-vocab
 ```
 
-Run the reusable experiment harness with optional probability shaping:
+Compare models with optional benchmark JSON:
 
 ```bash
 scripts/compare_models.py \
   --payload payload.bin \
   --corpus examples/carrier_train_v2.txt \
   --quality-text examples/carrier_heldout_v2.txt \
-  --include-transformer \
-  --shape-uniform-mix 0.85 \
-  --temperature 1.5
+  --json-out benchmark.json
 ```
 
-Compare a previously exported Transformer model:
+Run a bounded V2 experiment config:
 
 ```bash
-scripts/compare_models.py \
-  --payload payload.bin \
-  --corpus examples/carrier_train_v2.txt \
-  --quality-text examples/carrier_heldout_v2.txt \
-  --transformer-model transformer-torch.json \
-  --shape-uniform-mix 0.90 \
-  --temperature 1.75
+scripts/run_experiment.py experiments/configs/example_fixed.json
 ```
+
+Optional PyTorch training/export is available in
+`scripts/train_transformer_torch.py`. PyTorch is only needed for that exporter;
+the exported JSON model loads through the dependency-free `TransformerLM`
+runtime.
+
+## Research Notes
 
 Probability shaping is intentionally separate from the models. Defaults are a
 no-op, while non-default shaping settings are written into the armour so decode
-can reproduce the same distribution. This is the guardrail layer intended for
-future Transformer-backed carriers.
+can reproduce the same distribution. Uniform mixing and temperature are
+guardrails for keeping model distributions usable by the range coder; they are
+not a claim of natural language quality.
 
-The comparison harness reports both transport and language-quality metrics:
-
-- Carrier chars and bits per carrier char.
-- Average negative log likelihood on the corpus or `--quality-text`.
-- Average entropy per model step.
-- Average top-token probability.
-- Deterministic greedy preview text.
-
-Optional PyTorch training/export path:
-
-```bash
-scripts/train_transformer_torch.py \
-  --data examples/carrier_train_v2.txt \
-  --valid-data examples/carrier_heldout_v2.txt \
-  --out transformer-torch.json \
-  --block-size 16 \
-  --d-model 16 \
-  --ff-dim 32 \
-  --epochs 12 \
-  --learning-rate 0.006 \
-  --max-train-tokens 0
-```
-
-PyTorch is only needed for this training exporter. The exported JSON model loads
-through the normal dependency-free `TransformerLM` runtime.
-
-Sweep shaping settings for an exported model:
-
-```bash
-scripts/sweep_shaping.py \
-  --model transformer-torch.json \
-  --payload payload.bin \
-  --quality-text examples/carrier_heldout_v2.txt \
-  --uniform-mixes 0.80,0.90,0.95 \
-  --temperatures 1.25,1.75 \
-  --min-entropy-bits 5.85 \
-  --max-quality-chars 8000
-```
-
-On the current v2 corpus, the best small-grid setting was
-`--shape-uniform-mix 0.80 --temperature 1.25`. Greedy preview still collapses,
-so the sweep also reports encoded carrier preview and carrier diversity; the
-actual LMCodec carrier is driven by payload bits rather than greedy decoding.
-Use the full held-out file for final comparisons, and `--max-quality-chars` for
-faster iterative pure-Python sweeps.
-
-The pure-Python Transformer runtime caches token-position projections for
-attention. On the current exported v2 model, building an 8000-character
-held-out probability trace dropped from about 8.0 seconds to about 2.1 seconds,
-and the bounded shaping sweep dropped from about 16 seconds to about 9 seconds.
-
-A Karpathy `autoresearch`-style loop is a good future fit once held-out
-evaluation is meaningful: let an agent propose corpus mixes, model sizes,
-training settings, and shaping settings, then keep only experiments that improve
-held-out NLL while preserving entropy, convergence, decode determinism, and
-bits-per-character.
+Greedy previews are useful diagnostics, but they are not representative of
+encoded carrier text. The actual LMCodec carrier is selected by payload bits
+through the range coder under the model distribution.
 
 Current demo metrics for `bytes(range(256))`:
 
@@ -248,15 +236,36 @@ Pinned Transformer fixture metrics for `bytes(range(256))` with
 - Carrier chars: `362`
 - Bits per carrier char: `5.923`
 
-## Golden V1
+## Documentation
 
-The current golden fixture is [tests/fixtures/golden_message_v1.txt](tests/fixtures/golden_message_v1.txt).
+- [docs/ALGORITHM.md](docs/ALGORITHM.md): core reversible mapping.
+- [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md): implementation
+  milestones and design notes.
+- [docs/V1_RELEASE.md](docs/V1_RELEASE.md): V1 checkpoint and pinned artifact
+  details.
+- [docs/LIMITATIONS.md](docs/LIMITATIONS.md): current boundaries and non-goals.
+- [docs/QUICKSTART.md](docs/QUICKSTART.md): installed CLI usage.
+- [docs/BENCHMARKING.md](docs/BENCHMARKING.md): structured benchmark JSON.
+- [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md): bounded V2 experiment runner.
+- [docs/CARRIER_QUALITY.md](docs/CARRIER_QUALITY.md): carrier quality metrics
+  and trade-offs.
+- [docs/TESTING.md](docs/TESTING.md): stress/property test strategy.
 
-Fixed carrier pinned values:
+## Golden V1 Fixtures
 
+All golden fixtures use payload `bytes(range(256))`.
+
+Payload SHA256:
+
+```text
+40aff2e9d2d8922e47afd4648e6967497158785fbd1da870e7110266bf944880
+```
+
+Fixed carrier:
+
+- Message fixture: [tests/fixtures/golden_message_v1.txt](tests/fixtures/golden_message_v1.txt)
 - Model fingerprint: `d60583f4d741e42cb713b11c78b8ffc89cda1ee05eca522929bec8cbdb423be8`
 - Message SHA256: `f53ec3604a378788b20cf6e0aadbfe441a063aa7ce1cea0bef9b1427cbd21e35`
-- Payload SHA256: `40aff2e9d2d8922e47afd4648e6967497158785fbd1da870e7110266bf944880`
 
 Order-1 n-gram carrier fixture:
 
@@ -264,7 +273,6 @@ Order-1 n-gram carrier fixture:
 - Message fixture: [tests/fixtures/ngram_golden_message_v1.txt](tests/fixtures/ngram_golden_message_v1.txt)
 - Model fingerprint: `b1cd62a9019b67e0a42913dac1dca09852b4931f09afa87bb8e62089fe184a3a`
 - Message SHA256: `53c062a238764c72caa9dd338d37682ab350d7ace4251e9778ba13ae97d99512`
-- Payload SHA256: `40aff2e9d2d8922e47afd4648e6967497158785fbd1da870e7110266bf944880`
 
 Transformer carrier fixture:
 
@@ -273,21 +281,9 @@ Transformer carrier fixture:
 - Settings: `SHAPE_UNIFORM_MIX=0.80; TEMPERATURE=1.25`
 - Model fingerprint: `cfc75d7b54524f7a09a90454d89768aa4eb75b17546607c376760e2fc9d8f851`
 - Message SHA256: `7713a0b7208462485f854ab58e5423f16c16360aeff524f1597ba49c840ad96b`
-- Payload SHA256: `40aff2e9d2d8922e47afd4648e6967497158785fbd1da870e7110266bf944880`
 
-To regenerate after intentional codec changes:
+Regenerate golden fixtures only after intentional codec changes:
 
 ```bash
 python3 scripts/generate_golden.py
 ```
-
-## Recommended Build Order
-
-1. Quantizer.
-2. Range coder.
-3. Codec with a fixed toy distribution.
-4. Codec with a deterministic character n-gram model.
-5. Armour and integrity checks.
-6. Golden regression.
-7. Probability shaping and experiment harness.
-8. Transformer-backed LM experiments.

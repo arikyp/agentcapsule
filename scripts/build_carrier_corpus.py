@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import json
 import random
 import sys
+from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -220,6 +222,25 @@ TEMPLATES = [
     "when the {noun} moves the {topic} keeps the carrier readable",
 ]
 
+DOMAIN_TEMPLATES = {
+    "codec": TEMPLATES,
+    "operations": [
+        "the {place} records a {adj} {noun} for shift {num}",
+        "operators {action} the {noun} before the {topic} changes",
+        "the {adj} {place} keeps every {noun} ready for review",
+        "run {num} moves through the {place} with a {adj} report",
+        "the {topic} helps the team {action} the {adj} {noun}",
+    ],
+    "notes": [
+        "today the {adj} {noun} explains the {topic} in plain text",
+        "a reader can {action} the {noun} from the {place}",
+        "the {place} keeps a {adj} note about the {topic}",
+        "draft {num} describes the {adj} {noun} without extra noise",
+        "the {noun} says the {topic} stayed {adj} through the day",
+    ],
+}
+DOMAIN_TEMPLATES["mixed"] = TEMPLATES + DOMAIN_TEMPLATES["operations"] + DOMAIN_TEMPLATES["notes"]
+
 SEED_LINES = [
     "the language modem carries bytes through ordinary looking text",
     "small messages move through notes memos logs and chat windows",
@@ -241,13 +262,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", required=True)
     parser.add_argument("--lines", type=int, default=1000)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--domain", choices=sorted(DOMAIN_TEMPLATES), default="mixed")
+    parser.add_argument("--report-json", help="write corpus vocabulary/frequency report")
     args = parser.parse_args(argv)
 
     if args.lines < len(SEED_LINES):
         print(f"lines must be at least {len(SEED_LINES)}", file=sys.stderr)
         return 2
 
-    lines = build_lines(args.lines, seed=args.seed)
+    lines = build_lines(args.lines, seed=args.seed, domain=args.domain)
     text = "\n".join(lines) + "\n"
     invalid = sorted(set(text) - set(default_vocab()) - {"\n"})
     if invalid:
@@ -255,17 +278,26 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     Path(args.out).write_text(text, encoding="utf-8", newline="\n")
+    if args.report_json:
+        Path(args.report_json).write_text(
+            json.dumps(corpus_report(text, domain=args.domain, seed=args.seed), indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
     print(f"lines: {len(lines)}")
     print(f"chars: {len(text)}")
+    print(f"domain: {args.domain}")
     print(f"path: {args.out}")
     return 0
 
 
-def build_lines(count: int, *, seed: int) -> list[str]:
+def build_lines(count: int, *, seed: int, domain: str = "mixed") -> list[str]:
+    if domain not in DOMAIN_TEMPLATES:
+        raise ValueError("unsupported domain")
     rng = random.Random(seed)
     lines = list(SEED_LINES)
     for idx in range(count - len(lines)):
-        template = TEMPLATES[idx % len(TEMPLATES)]
+        templates = DOMAIN_TEMPLATES[domain]
+        template = templates[idx % len(templates)]
         line = template.format(
             adj=rng.choice(ADJECTIVES),
             noun=rng.choice(NOUNS),
@@ -278,6 +310,25 @@ def build_lines(count: int, *, seed: int) -> list[str]:
         lines.append(line)
     rng.shuffle(lines)
     return lines
+
+
+def corpus_report(text: str, *, domain: str, seed: int) -> dict[str, object]:
+    allowed = set(default_vocab()) | {"\n"}
+    counts = Counter(text)
+    invalid = sorted(set(text) - allowed)
+    return {
+        "domain": domain,
+        "seed": seed,
+        "chars": len(text),
+        "lines": len([line for line in text.splitlines() if line.strip()]),
+        "unique_chars": len(counts),
+        "invalid_chars": invalid,
+        "vocab_coverage": {
+            char: counts[char]
+            for char in default_vocab()
+            if counts[char] > 0
+        },
+    }
 
 
 if __name__ == "__main__":

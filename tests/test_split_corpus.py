@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.split_corpus import _segments, main
+from scripts.split_corpus import _segments, main, split_report
 
 
 class SplitCorpusTests(unittest.TestCase):
@@ -46,6 +46,25 @@ class SplitCorpusTests(unittest.TestCase):
             self.assertTrue(train.read_text(encoding="utf-8"))
             self.assertTrue(heldout.read_text(encoding="utf-8"))
             self.assertNotEqual(train.read_text(encoding="utf-8"), heldout.read_text(encoding="utf-8"))
+
+    def test_split_report_records_filtering_and_coverage(self) -> None:
+        original = "alpha beta\nbad!\n"
+        filtered = "alpha beta\nbad\n"
+        report = split_report(
+            original,
+            filtered,
+            ["alpha beta"],
+            ["bad"],
+            filter_vocab=True,
+            heldout_ratio=0.25,
+            seed=123,
+        )
+
+        self.assertEqual(report["filter_vocab"], True)
+        self.assertEqual(report["original_invalid_chars"], ["!"])
+        self.assertEqual(report["filtered_invalid_chars"], [])
+        self.assertEqual(report["segments"], 2)
+        self.assertGreater(report["shared_unique_chars"], 0)
 
 
 if __name__ == "__main__":

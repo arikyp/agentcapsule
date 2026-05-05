@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import log2
+from time import perf_counter
 
+from lmcodec.carrier_quality import CarrierQualityMetrics, carrier_quality_metrics
 from lmcodec.codec import CodecSettings, decode, encode
 from lmcodec.lm import FixedLM, NGramLM
 from lmcodec.probability import ProbabilityShapeSettings, entropy_bits, shape_probabilities
@@ -20,7 +22,10 @@ class ModelMetrics:
     bits_per_carrier_char: float
     model_fingerprint: str
     carrier_preview: str
+    encode_seconds: float = 0.0
+    decode_seconds: float = 0.0
     quality: QualityMetrics | None = None
+    carrier_quality: CarrierQualityMetrics | None = None
 
 
 @dataclass(frozen=True)
@@ -53,8 +58,12 @@ def measure_roundtrip(
     quality_text: str | None = None,
     preview_chars: int = 80,
 ) -> ModelMetrics:
+    encode_start = perf_counter()
     message = encode(payload, model=model, settings=settings, wrap=wrap, max_steps=max_steps)
+    encode_seconds = perf_counter() - encode_start
+    decode_start = perf_counter()
     recovered = decode(message, model=model)
+    decode_seconds = perf_counter() - decode_start
     if recovered != payload:
         raise AssertionError("roundtrip mismatch")
 
@@ -69,7 +78,10 @@ def measure_roundtrip(
         bits_per_carrier_char=payload_bits / max(carrier_chars, 1),
         model_fingerprint=model.fingerprint,
         carrier_preview=carrier_text[:preview_chars],
+        encode_seconds=encode_seconds,
+        decode_seconds=decode_seconds,
         quality=evaluate_quality(model, quality_text, settings=settings, preview_chars=preview_chars) if quality_text else None,
+        carrier_quality=carrier_quality_metrics(carrier_text, reference_text=quality_text, preview_chars=preview_chars),
     )
 
 
