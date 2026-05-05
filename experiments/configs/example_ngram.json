@@ -17,6 +17,7 @@
     "min_entropy_bits": 0.0
   },
   "max_steps": 100000,
+  "run_golden_tests": true,
   "wrap": 80,
   "quality_text_path": "examples/carrier_heldout_v1.txt",
   "promotion_gate": {

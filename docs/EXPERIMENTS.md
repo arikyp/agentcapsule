@@ -43,6 +43,7 @@ Minimal fixed-carrier config:
     "min_entropy_bits": 0.0
   },
   "max_steps": 100000,
+  "run_golden_tests": true,
   "quality_text_path": "examples/carrier_heldout_v1.txt",
   "promotion_gate": {
     "min_entropy_bits": 5.9
@@ -98,12 +99,18 @@ A run is promoted only when all checks pass:
 - Average entropy is at or above `promotion_gate.min_entropy_bits` when that
   gate is configured.
 - Encode does not hit a convergence failure.
-- Golden tests are not affected by the run.
+- Golden tests are not affected by the run when `run_golden_tests` is enabled.
 
-The runner does not execute golden tests itself. The `golden_tests_unaffected`
-check records the contract: experiment runs must not mutate fixtures or codec
-semantics. Use the normal test suite and `scripts/verify_v1.sh` after code
-changes.
+By default, `golden_tests_unaffected` is recorded as
+`not_checked_by_runner`, and `promotion.passed` remains false. Set
+`"run_golden_tests": true` in a config to have the runner execute:
+
+```bash
+python -m unittest tests.test_golden
+```
+
+That check is still not a replacement for the normal full test suite and
+`scripts/verify_v1.sh` after code changes.
 
 ## Comparing Runs
 

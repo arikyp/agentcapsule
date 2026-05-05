@@ -7,6 +7,8 @@ import argparse
 import base64
 import hashlib
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 from time import perf_counter
@@ -101,6 +103,7 @@ def _run(config: dict[str, Any], config_path: Path, output_dir: Path, result: di
     roundtrip_success = decoded == payload
     fingerprint_stable = fingerprint_before == fingerprint_after == model.fingerprint
     entropy_ok = quality is None or min_entropy is None or quality["avg_entropy_bits"] >= min_entropy
+    golden_check = _golden_test_check(config)
 
     result.update(
         {
@@ -143,12 +146,13 @@ def _run(config: dict[str, Any], config_path: Path, output_dir: Path, result: di
         "model_fingerprint_stable": fingerprint_stable,
         "entropy_above_minimum": entropy_ok,
         "no_convergence_failure": True,
-        "golden_tests_unaffected": True,
+        "golden_tests_unaffected": golden_check["status"],
     }
     result["promotion"] = {
-        "passed": all(checks.values()),
+        "passed": all(value is True for value in checks.values()),
         "minimum_entropy_bits": min_entropy,
         "checks": checks,
+        "golden_tests": golden_check,
     }
 
 
@@ -192,7 +196,13 @@ def _base_result(config: dict[str, Any], config_path: Path) -> dict[str, Any]:
                 "model_fingerprint_stable": False,
                 "entropy_above_minimum": False,
                 "no_convergence_failure": False,
-                "golden_tests_unaffected": True,
+                "golden_tests_unaffected": "not_checked_by_runner"
+            },
+            "golden_tests": {
+                "command": None,
+                "returncode": None,
+                "status": "not_checked_by_runner",
+                "output": "",
             },
         },
     }
@@ -302,6 +312,36 @@ def _min_entropy_gate(config: dict[str, Any]) -> float | None:
     if "min_entropy_bits" in shape and float(shape["min_entropy_bits"]) > 0.0:
         return float(shape["min_entropy_bits"])
     return None
+
+
+def _golden_test_check(config: dict[str, Any]) -> dict[str, Any]:
+    command = [sys.executable, "-m", "unittest", "tests.test_golden"]
+    if not config.get("run_golden_tests", False):
+        return {
+            "command": " ".join(command),
+            "returncode": None,
+            "status": "not_checked_by_runner",
+            "output": "",
+        }
+
+    env = os.environ.copy()
+    src_path = str(ROOT / "src")
+    env["PYTHONPATH"] = src_path if not env.get("PYTHONPATH") else src_path + os.pathsep + env["PYTHONPATH"]
+    completed = subprocess.run(
+        command,
+        cwd=ROOT,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        check=False,
+    )
+    return {
+        "command": " ".join(command),
+        "returncode": completed.returncode,
+        "status": completed.returncode == 0,
+        "output": completed.stdout,
+    }
 
 
 def _required_path(values: dict[str, Any], key: str, config_path: Path) -> Path:
