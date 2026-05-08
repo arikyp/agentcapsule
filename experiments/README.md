@@ -31,3 +31,9 @@ Compare completed runs:
 ```bash
 scripts/compare_results.py experiments/runs/*/result.json
 ```
+
+Run the V2 checkpoint matrix:
+
+```bash
+scripts/run_matrix.py experiments/matrices/v2_checkpoint.json
+```

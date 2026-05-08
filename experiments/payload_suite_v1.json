@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "payloads": [
+    {
+      "name": "empty",
+      "kind": "empty"
+    },
+    {
+      "name": "tiny_text",
+      "kind": "text",
+      "text": "lmcodec v2 checkpoint payload\n"
+    },
+    {
+      "name": "structured_json",
+      "kind": "text",
+      "text": "{\"codec\":\"lmcodec\",\"version\":\"v2-checkpoint\",\"cases\":[\"roundtrip\",\"entropy\",\"quality\"],\"ok\":true}\n"
+    },
+    {
+      "name": "binary_256",
+      "kind": "range",
+      "start": 0,
+      "count": 256
+    }
+  ]
+}

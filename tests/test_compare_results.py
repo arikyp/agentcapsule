@@ -52,6 +52,7 @@ class CompareResultsTests(unittest.TestCase):
             self.assertEqual(records[0]["experiment_name"], "candidate")
             self.assertAlmostEqual(records[0]["delta_heldout_nll_bits"], -0.5)
             self.assertAlmostEqual(records[0]["delta_avg_entropy_bits"], 0.2)
+            self.assertIn("char_frequency_l1_divergence", records[0])
 
 
 def _write_result(
@@ -76,6 +77,8 @@ def _write_result(
                 "carrier_diversity": {
                     "unique_character_count": 64,
                     "longest_repeated_run": 2,
+                    "char_frequency_l1_divergence": 0.25,
+                    "char_frequency_kl_bits": 0.5,
                 },
                 "avg_top_probability": 0.1,
                 "error_message": None,

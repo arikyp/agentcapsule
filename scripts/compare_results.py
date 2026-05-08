@@ -22,6 +22,8 @@ FIELDS = [
     "carrier_chars",
     "unique_character_count",
     "longest_repeated_run",
+    "char_frequency_l1_divergence",
+    "char_frequency_kl_bits",
     "avg_top_probability",
     "error_message",
 ]
@@ -34,6 +36,8 @@ NUMERIC_FIELDS = {
     "carrier_chars",
     "unique_character_count",
     "longest_repeated_run",
+    "char_frequency_l1_divergence",
+    "char_frequency_kl_bits",
     "avg_top_probability",
 }
 
@@ -86,6 +90,8 @@ def _record(path: Path) -> dict[str, Any]:
         "carrier_chars": document.get("carrier_chars"),
         "unique_character_count": diversity.get("unique_character_count"),
         "longest_repeated_run": diversity.get("longest_repeated_run"),
+        "char_frequency_l1_divergence": diversity.get("char_frequency_l1_divergence"),
+        "char_frequency_kl_bits": diversity.get("char_frequency_kl_bits"),
         "avg_top_probability": document.get("avg_top_probability"),
         "error_message": document.get("error_message"),
     }

@@ -16,6 +16,8 @@ All notable changes to LMCodec are tracked here.
   autoagent-safe n-gram budget configs.
 - Added the third V2 sprint plan, order-3 stress configs, and an order-3
   candidate report.
+- Added deterministic V2 payload and matrix specs, a matrix runner, checkpoint
+  candidate reports, and a V2 research checkpoint.
 - Added carrier quality metrics and corpus report utilities.
 - Added stress tests for roundtrip, range coder, quantizer, and corruption
   handling.

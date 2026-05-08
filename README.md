@@ -257,6 +257,8 @@ Pinned Transformer fixture metrics for `bytes(range(256))` with
   for bounded V2 research.
 - [docs/V2_CANDIDATE_REPORT_TEMPLATE.md](docs/V2_CANDIDATE_REPORT_TEMPLATE.md):
   report shape for reviewed V2 candidates.
+- [docs/V2_CHECKPOINT.md](docs/V2_CHECKPOINT.md): V2 research checkpoint,
+  matrix ranking, and merge recommendation.
 - [docs/V2_SPRINT_1.md](docs/V2_SPRINT_1.md): first V2 candidate stress
   sprint.
 - [docs/V2_SPRINT_2.md](docs/V2_SPRINT_2.md): first autoagent-safe
@@ -265,6 +267,12 @@ Pinned Transformer fixture metrics for `bytes(range(256))` with
   sprint.
 - [docs/V2_CANDIDATE_ORDER3.md](docs/V2_CANDIDATE_ORDER3.md): current order-3
   candidate report.
+- [docs/V2_CANDIDATE_ORDER3_SHAPED.md](docs/V2_CANDIDATE_ORDER3_SHAPED.md):
+  shaped order-3 candidate report.
+- [docs/V2_CANDIDATE_ORDER2_SAFETY.md](docs/V2_CANDIDATE_ORDER2_SAFETY.md):
+  order-2 safety fallback report.
+- [docs/V2_CANDIDATE_TRANSFORMER_FIXTURE.md](docs/V2_CANDIDATE_TRANSFORMER_FIXTURE.md):
+  Transformer fixture candidate report.
 - [docs/CARRIER_QUALITY.md](docs/CARRIER_QUALITY.md): carrier quality metrics
   and trade-offs.
 - [docs/TESTING.md](docs/TESTING.md): stress/property test strategy.

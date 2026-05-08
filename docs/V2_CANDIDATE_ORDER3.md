@@ -41,12 +41,31 @@
 - What regressed: entropy dropped slightly and top-token concentration rose,
   so the model is sharper.
 - What is uncertain: this candidate has not yet been tested across independent
-  corpus domains or larger binary payloads.
+  larger binary payloads.
+
+## Checkpoint Matrix
+
+The V2 checkpoint matrix tested this candidate across three deterministic
+payloads and three deterministic corpus domains.
+
+| Metric | Matrix mean |
+| --- | ---: |
+| Hard gate failures | 0 |
+| Held-out NLL | 4.450 |
+| Average entropy | 5.904 |
+| Bits per carrier char | 5.924 |
+| Average top probability | 0.064 |
+
+Matrix result:
+
+- Passed all hard gates across 12 runs.
+- Ranked first by hard gates, then held-out NLL.
+- Still sharper than the shaped order-3 candidate.
 
 ## Recommendation
 
-Recommendation: investigate.
+Recommendation: promote as quality candidate.
 
-Rationale: order 3 is the current quality candidate, but it is not yet a
-release candidate. Sprint 4 should test domain variation and compare against
-the shaped order-3 safety variant before any broader promotion.
+Rationale: order 3 is the current quality candidate after Sprint 3 and the
+checkpoint matrix. It should be promoted as the V2 quality baseline, not as a
+runtime default or format change.

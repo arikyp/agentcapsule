@@ -63,8 +63,8 @@ Use these fields first:
 - `avg_top_probability`
 - `carrier_diversity.unique_character_count`
 - `carrier_diversity.longest_repeated_run`
-- `carrier_diversity.frequency_l1_divergence`
-- `carrier_diversity.frequency_kl_bits`
+- `carrier_diversity.char_frequency_l1_divergence`
+- `carrier_diversity.char_frequency_kl_bits`
 
 Runtime fields such as timestamp and encode/decode seconds are useful for
 debugging but should not be treated as deterministic improvement signals.
@@ -118,3 +118,30 @@ into repeatable batches.
 - Do not accept non-deterministic training artifacts as fixtures.
 - Do not let generated experiment artifacts drift into source control unless
   they are intentionally chosen as reproducible baselines.
+
+## Checkpoint Matrices
+
+Use `scripts/run_matrix.py` when a candidate needs promotion-grade research
+coverage across payloads and corpus domains:
+
+```bash
+scripts/run_matrix.py experiments/matrices/v2_checkpoint.json
+```
+
+The matrix runner writes deterministic payloads, deterministic corpus splits,
+generated configs, per-run artifacts, and `matrix_result.json` under its output
+directory. Generated matrix artifacts stay under `experiments/runs/` and are
+ignored by git.
+
+Matrix rankings use hard gates before quality metrics:
+
+- no error
+- roundtrip success
+- decoded SHA256 matches payload SHA256
+- model fingerprint stability
+- entropy above configured minimum
+- no convergence failure
+
+V1 golden fixture safety is verified separately with `sh scripts/verify_v1.sh`
+and `sh scripts/release_check.sh` for checkpoint work, rather than repeated
+inside every matrix cell.
