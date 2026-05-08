@@ -114,6 +114,49 @@ class RunMatrixTests(unittest.TestCase):
 
             self.assertEqual(records["cell"]["status"], "timeout")
 
+    def test_reusable_models_are_planned_for_dry_run_configs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            corpus = {"name": "corpus", "train_path": str(root / "train.txt"), "heldout_path": str(root / "heldout.txt")}
+            candidate = {
+                "name": "ngram_cached",
+                "reuse_model_per_corpus": True,
+                "model": {"type": "ngram", "training": {"order": 1}},
+            }
+
+            reusable = run_matrix._prepare_reusable_models([candidate], [corpus], root / "models", materialize=False)
+            configs = run_matrix._write_configs(
+                {"matrix_name": "test", "candidates": [candidate]},
+                [{"name": "payload", "path": str(root / "payload.bin")}],
+                [corpus],
+                root,
+                reusable,
+            )
+
+            config = json.loads(Path(configs[0]["config_path"]).read_text(encoding="utf-8"))
+            self.assertEqual(config["model"]["type"], "ngram")
+            self.assertIn("models/ngram_cached-corpus.json", config["model"]["path"])
+            self.assertNotIn("training", config["model"])
+            self.assertFalse(Path(config["model"]["path"]).exists())
+
+    def test_reusable_models_materialize_once_per_candidate_corpus(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            train = root / "train.txt"
+            train.write_text("abcabcabc\n", encoding="utf-8")
+            corpus = {"name": "corpus", "train_path": str(train), "heldout_path": str(root / "heldout.txt")}
+            candidate = {
+                "name": "ngram_cached",
+                "reuse_model_per_corpus": True,
+                "model": {"type": "ngram", "training": {"order": 1, "alpha": 1.0, "uniform_mix": 0.75}},
+            }
+
+            reusable = run_matrix._prepare_reusable_models([candidate], [corpus], root / "models", materialize=True)
+            model_path = Path(reusable["ngram_cached"]["corpus"]["path"])
+
+            self.assertTrue(model_path.exists())
+            self.assertEqual(json.loads(model_path.read_text(encoding="utf-8"))["model_type"], "ngram-v1")
+
 
 if __name__ == "__main__":
     unittest.main()

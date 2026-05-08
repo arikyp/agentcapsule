@@ -110,3 +110,26 @@ Result summary:
 
 If this branch is split from the stack later, keep it as docs plus matrix only.
 It should not carry runtime hot-path or n-gram ceiling changes.
+
+## Trained Transformer Reuse Branch
+
+The trained Transformer reuse branch is:
+
+```text
+codex/v2-transformer-trained-reuse-comparison
+```
+
+It is stacked after the fixture comparison branch. Its code change is scoped to
+matrix-runner mechanics: trainable candidates may opt into one exported model
+per candidate/corpus with `reuse_model_per_corpus`.
+
+Result summary:
+
+- Matrix: `experiments/matrices/v2_trained_transformer_reuse_comparison.json`
+- Results: `docs/V2_TRAINED_TRANSFORMER_REUSE_RESULTS.md`
+- Outcome: 32/32 hard gates passed.
+- Decision: keep reusable model support; do not promote the tiny trained
+  Transformer over the n-gram baselines.
+
+If this branch is split from the stack later, keep the runner change, its tests,
+the trained Transformer matrix, and the result doc together.

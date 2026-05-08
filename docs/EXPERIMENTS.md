@@ -61,6 +61,31 @@ Model types:
 Relative paths are resolved from the current working directory when possible,
 then relative to the config file, then relative to the repository root.
 
+## Matrix Model Reuse
+
+`scripts/run_matrix.py` can train one model per candidate/corpus and reuse it
+across all payload cells. Set this on a trainable matrix candidate:
+
+```json
+{
+  "name": "transformer_trained_tiny",
+  "reuse_model_per_corpus": true,
+  "model": {
+    "type": "transformer",
+    "training": {
+      "block_size": 8,
+      "d_model": 8,
+      "ff_dim": 12,
+      "epochs": 1
+    }
+  }
+}
+```
+
+The runner writes reusable models under the matrix output directory and points
+generated cell configs at those model paths. Dry runs write the planned config
+paths but do not materialize the models.
+
 ## Result Metrics
 
 `result.json` includes:

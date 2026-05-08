@@ -17,7 +17,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from lmcodec.lm import default_vocab  # noqa: E402
+from lmcodec.lm import NGramLM, default_vocab  # noqa: E402
+from lmcodec.transformer import TransformerLM  # noqa: E402
 
 
 _PROGRESS_FIELDS = [
@@ -54,7 +55,13 @@ def main(argv: list[str] | None = None) -> int:
 
     payloads = _materialize_payloads(matrix.get("payloads", []), output_dir / "payloads")
     corpora = _materialize_corpora(matrix.get("corpora", []), output_dir / "corpora")
-    configs = _write_configs(matrix, payloads, corpora, output_dir)
+    reusable_models = _prepare_reusable_models(
+        matrix.get("candidates", []),
+        corpora,
+        output_dir / "models",
+        materialize=not args.dry_run,
+    )
+    configs = _write_configs(matrix, payloads, corpora, output_dir, reusable_models)
 
     records = []
     if not args.dry_run:
@@ -83,6 +90,7 @@ def main(argv: list[str] | None = None) -> int:
         "payloads": payloads,
         "corpora": corpora,
         "configs": configs,
+        "reusable_models": reusable_models,
         "records": records,
         "rankings": _candidate_rankings(records),
         "dry_run": args.dry_run,
@@ -218,6 +226,7 @@ def _write_configs(
     payloads: list[dict[str, Any]],
     corpora: list[dict[str, Any]],
     output_dir: Path,
+    reusable_models: dict[str, dict[str, dict[str, Any]]] | None = None,
 ) -> list[dict[str, Any]]:
     config_dir = output_dir / "configs"
     run_dir = output_dir / "runs"
@@ -228,7 +237,16 @@ def _write_configs(
         for corpus in corpora:
             for payload in payloads:
                 experiment_name = f"{matrix.get('matrix_name', 'matrix')}-{candidate['name']}-{corpus['name']}-{payload['name']}"
-                config = _candidate_config(matrix, candidate, corpus, payload, run_dir / experiment_name, experiment_name)
+                reusable_model = (reusable_models or {}).get(candidate["name"], {}).get(corpus["name"])
+                config = _candidate_config(
+                    matrix,
+                    candidate,
+                    corpus,
+                    payload,
+                    run_dir / experiment_name,
+                    experiment_name,
+                    reusable_model=reusable_model,
+                )
                 config_path = config_dir / f"{experiment_name}.json"
                 config_path.write_text(json.dumps(config, indent=2, sort_keys=True) + "\n", encoding="utf-8")
                 configs.append(
@@ -251,9 +269,12 @@ def _candidate_config(
     payload: dict[str, Any],
     output_dir: Path,
     experiment_name: str,
+    reusable_model: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     model = copy.deepcopy(candidate["model"])
-    if "training" in model:
+    if reusable_model is not None:
+        model = {"type": model["type"], "path": reusable_model["path"]}
+    elif "training" in model:
         model["training"]["corpus_path"] = corpus["train_path"]
     return {
         "experiment_name": experiment_name,
@@ -268,6 +289,67 @@ def _candidate_config(
         "output_dir": str(output_dir),
         "export_model": bool(candidate.get("export_model", False)),
     }
+
+
+def _prepare_reusable_models(
+    candidates: list[dict[str, Any]],
+    corpora: list[dict[str, Any]],
+    model_dir: Path,
+    *,
+    materialize: bool,
+) -> dict[str, dict[str, dict[str, Any]]]:
+    reusable: dict[str, dict[str, dict[str, Any]]] = {}
+    for candidate in candidates:
+        if not candidate.get("reuse_model_per_corpus", False):
+            continue
+        model_config = candidate.get("model", {})
+        if model_config.get("path"):
+            continue
+        if "training" not in model_config:
+            raise ValueError("reuse_model_per_corpus requires a trainable model")
+        model_type = model_config.get("type")
+        if model_type not in {"ngram", "transformer"}:
+            raise ValueError(f"reuse_model_per_corpus does not support model type: {model_type}")
+
+        reusable[candidate["name"]] = {}
+        for corpus in corpora:
+            path = model_dir / f"{candidate['name']}-{corpus['name']}.json"
+            reusable[candidate["name"]][corpus["name"]] = {
+                "path": str(path),
+                "model_type": model_type,
+                "materialized": materialize,
+            }
+            if materialize:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                _train_reusable_model(model_config, Path(corpus["train_path"]), path)
+    return reusable
+
+
+def _train_reusable_model(model_config: dict[str, Any], corpus_path: Path, output_path: Path) -> None:
+    training = model_config.get("training", {})
+    text = corpus_path.read_text(encoding="utf-8")
+    model_type = model_config.get("type")
+    if model_type == "ngram":
+        model = NGramLM.train(
+            text,
+            order=int(training.get("order", 1)),
+            alpha=float(training.get("alpha", 1.0)),
+            uniform_mix=float(training.get("uniform_mix", 0.75)),
+        )
+    elif model_type == "transformer":
+        model = TransformerLM.train(
+            text,
+            block_size=int(training.get("block_size", 8)),
+            d_model=int(training.get("d_model", 8)),
+            ff_dim=int(training.get("ff_dim", 12)),
+            seed=int(training.get("seed", 42)),
+            epochs=int(training.get("epochs", 1)),
+            learning_rate=float(training.get("learning_rate", 0.05)),
+            smoothing=float(training.get("smoothing", 0.25)),
+        )
+    else:
+        raise ValueError(f"unsupported reusable model type: {model_type}")
+    model.save(output_path)
 
 
 def _run_config(
