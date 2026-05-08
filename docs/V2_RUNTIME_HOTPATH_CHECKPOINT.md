@@ -128,7 +128,10 @@ stress cell completes in under 5 seconds of measured encode/decode time.
 
 Follow-up matrix broadening completed in
 `docs/V2_LARGE_PAYLOAD_STRESS_RESULTS.md`: all 36 large-payload real-ish cells
-passed hard gates under a 60-second per-cell cap. The next substantive step is
-broader corpus realism and larger payload sizes before changing model family.
-If another runtime optimization is needed, the next measured target is
+passed hard gates under a 60-second per-cell cap. A second ladder in
+`docs/V2_REAL_CORPUS_PAYLOAD_LADDER_RESULTS.md` then passed all 24 broader
+corpus 256KB/512KB cells under a 120-second per-cell cap.
+
+The next substantive step is a 1MB ceiling-finding branch before changing model
+family. If another runtime optimization is needed, the next measured target is
 range-coder arithmetic cost rather than probability or frame probing.
