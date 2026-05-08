@@ -131,12 +131,18 @@ def evaluate_quality_trace(
     nll = 0.0
     entropy = 0.0
     top_probability = 0.0
+    shaped_cache: dict[tuple[float, ...], tuple[tuple[float, ...], float, float]] = {}
 
     for token_id, raw_probs in zip(trace.targets, trace.probabilities, strict=True):
-        probs = shape_probabilities(raw_probs, shape)
+        cached = shaped_cache.get(raw_probs)
+        if cached is None:
+            probs = shape_probabilities(raw_probs, shape)
+            cached = (probs, entropy_bits(probs), max(probs))
+            shaped_cache[raw_probs] = cached
+        probs, entropy_value, top_value = cached
         nll -= log2(max(probs[token_id], 1e-300))
-        entropy += entropy_bits(probs)
-        top_probability += max(probs)
+        entropy += entropy_value
+        top_probability += top_value
 
     return QualityMetrics(
         token_count=trace.token_count,

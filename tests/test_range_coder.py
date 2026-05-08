@@ -75,6 +75,15 @@ class RangeCoderTests(unittest.TestCase):
             mismatched_prefix[-1] = 1 - mismatched_prefix[-1]
             self.assertFalse(encoder.preview_finish_extends_prefix(mismatched_prefix))
 
+    def test_validation_remains_default(self) -> None:
+        encoder = RangeEncoder()
+        with self.assertRaises(ValueError):
+            encoder.push_symbol((0, 2, 1), 0)
+
+        decoder = RangeDecoder([0, 1, 0, 1])
+        with self.assertRaises(ValueError):
+            decoder.pop_symbol((0, 2, 1))
+
 
 if __name__ == "__main__":
     unittest.main()

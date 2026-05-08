@@ -35,9 +35,15 @@ Initial profile result:
   of rematerializing the whole emitted bit tuple.
 - Updated decode to parse the frame header once, then wait until the known
   frame bit length is available before materializing and parsing frame bits.
+- Added per-call CDF caching in encode/decode so repeated model distributions
+  reuse the same shaped and quantized CDF.
+- Added quality-metric shaping caches so matrix reporting does not repeatedly
+  reshape identical heldout distributions.
+- Kept range-coder CDF validation as the public default, but let the codec use
+  an unchecked path for CDFs produced by LMCodec's own quantizer.
 
 These changes preserve the range-coder stream and only avoid repeated local
-work around prefix/frame checks.
+work around prefix, frame, and deterministic distribution preparation.
 
 ## Measured Results
 
@@ -48,25 +54,28 @@ Representative `order3_quality / project_docs / binary_32kb` result:
 | Size ladder baseline | 137.539 | 23.129 | pass |
 | After encode prefix optimization | 6.630 | 22.877 | pass |
 | After encode and decode optimization | 6.504 | 5.960 | pass |
+| After distribution caching | 1.073 | 0.528 | pass |
 
 Former 64KB timeout cell:
 
 | Payload | Encode seconds | Decode seconds | Roundtrip |
 | --- | ---: | ---: | --- |
-| `binary_64kb` | 13.564 | 11.773 | pass |
+| `binary_64kb` after prefix/frame fixes | 13.564 | 11.773 | pass |
+| `binary_64kb` after distribution caching | 2.145 | 1.025 | pass |
 
 Large-payload stress spot check:
 
 | Matrix cell | Encode seconds | Decode seconds | Roundtrip |
 | --- | ---: | ---: | --- |
-| `order3_quality / project_docs / binary_100kb` | 20.997 | 18.343 | pass |
+| `order3_quality / project_docs / binary_100kb` after prefix/frame fixes | 20.997 | 18.343 | pass |
+| `order3_quality / project_docs / binary_100kb` after distribution caching | 3.301 | 1.576 | pass |
 
 That 100KB cell was previously outside routine budget; one earlier uncapped
 100KB text cell took `1193.488s` encode and `220.153s` decode.
 
 ## Post-Optimization Profile
 
-Final 32KB profiled run:
+Profile after prefix/frame fixes:
 
 - Total profiled runtime: `40.098s`
 - Encode: `19.667s`
@@ -79,20 +88,35 @@ Final 32KB profiled run:
 The prefix and repeated frame-probing costs are no longer the controlling
 runtime issue.
 
+Final profile after distribution caching:
+
+- Total profiled runtime: `4.357s`
+- Encode: `2.373s`
+- Decode: `1.193s`
+- Top remaining costs:
+  - range-coder arithmetic in `push_symbol` and `pop_symbol`
+  - CDF cache lookups
+  - model `step_probs` / `advance`
+  - quality metrics, now `0.559s`
+
+The former probability shaping and quantization hot path is now bounded to
+cache misses.
+
 ## Verification
 
 Commands run:
 
 ```bash
 PYTHONPATH=src .venv/bin/python -m unittest tests.test_range_coder tests.test_range_coder_stress tests.test_codec tests.test_golden
+PYTHONPATH=src .venv/bin/python -m unittest tests.test_range_coder tests.test_range_coder_stress tests.test_codec tests.test_golden tests.test_experiments
 PYTHONPATH=src .venv/bin/python -m unittest discover -s tests
 sh scripts/verify_v1.sh
 ```
 
 Results:
 
-- Focused tests: `17` passed
-- Full tests: `74` passed
+- Focused tests: `23` passed
+- Full tests: `75` passed
 - V1 verification: passed
 
 ## Recommendation
@@ -100,8 +124,9 @@ Results:
 This branch should merge as a runtime strengthening of the V2 research
 baseline. The practical payload ceiling has moved materially: 64KB no longer
 times out for the profiled order-3 quality cell, and a 100KB real-ish binary
-stress cell completes in roughly 40 seconds end to end.
+stress cell completes in under 5 seconds of measured encode/decode time.
 
-The next substantive step should target probability and quantization cost with
-the same constraint: no semantic changes unless a measured cache or
-precomputation is proven against V1 fixtures and V2 matrix spot checks.
+The next substantive step should broaden the matrix again under the new runtime
+budget, especially 100KB cells across candidates and corpora. If those pass,
+the following engineering target is range-coder arithmetic cost rather than
+probability or frame probing.

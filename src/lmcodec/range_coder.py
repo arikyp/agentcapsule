@@ -47,10 +47,11 @@ class RangeEncoder:
     def bits_prefix(self, count: int) -> tuple[int, ...]:
         return tuple(self._bits[:count])
 
-    def push_symbol(self, cdf: Sequence[int], symbol: int) -> None:
+    def push_symbol(self, cdf: Sequence[int], symbol: int, *, validate: bool = True) -> None:
         if self._finished:
             raise ValueError("cannot push symbols after finish")
-        _validate_cdf(cdf)
+        if validate:
+            _validate_cdf(cdf)
         if symbol < 0 or symbol >= len(cdf) - 1:
             raise ValueError("symbol out of range")
 
@@ -152,8 +153,9 @@ class RangeDecoder:
         for _ in range(CODE_VALUE_BITS):
             self.code = (self.code << 1) | self._reader.read()
 
-    def pop_symbol(self, cdf: Sequence[int]) -> int:
-        _validate_cdf(cdf)
+    def pop_symbol(self, cdf: Sequence[int], *, validate: bool = True) -> int:
+        if validate:
+            _validate_cdf(cdf)
         total = cdf[-1]
         width = self.high - self.low + 1
         scaled_value = ((self.code - self.low + 1) * total - 1) // width

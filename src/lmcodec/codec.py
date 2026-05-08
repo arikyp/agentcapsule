@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from lmcodec.armour import make_armour, parse_armour
@@ -57,6 +58,7 @@ def encode(
     mirror = RangeEncoder()
     state = model.init_state()
     tokens: list[str] = []
+    cdf_cache: dict[tuple[float, ...], tuple[int, ...]] = {}
 
     step_limit = max_steps if max_steps is not None else max(1024, len(target_bits) * 64)
     steps = 0
@@ -64,12 +66,11 @@ def encode(
     while not mirror.preview_finish_extends_prefix(target_bits):
         if steps >= step_limit:
             raise LMCodecError("encoding did not converge")
-        probs = shape_probabilities(model.step_probs(state), settings.shape)
-        cdf = quantize(probs, total=settings.total).cdf
-        token_id = source.pop_symbol(cdf)
+        cdf = _cached_cdf(model.step_probs(state), settings, cdf_cache)
+        token_id = source.pop_symbol(cdf, validate=False)
         tokens.append(model.id_to_token(token_id))
         previous_bit_count = mirror.bit_count
-        mirror.push_symbol(cdf, token_id)
+        mirror.push_symbol(cdf, token_id, validate=False)
         if not mirror.emitted_prefix_matches_from(target_bits, previous_bit_count):
             raise AssertionError("range coder mirror diverged from target bits")
         model.advance(state, token_id)
@@ -106,14 +107,14 @@ def decode(
     encoder = RangeEncoder()
     header_bits = HEADER_SIZE * 8
     frame_bits: int | None = None
+    cdf_cache: dict[tuple[float, ...], tuple[int, ...]] = {}
     for token in block.payload_text:
         try:
             token_id = model.token_to_id(token)
         except ValueError as exc:
             raise LMCodecError(str(exc)) from exc
-        probs = shape_probabilities(model.step_probs(state), active_settings.shape)
-        cdf = quantize(probs, total=active_settings.total).cdf
-        encoder.push_symbol(cdf, token_id)
+        cdf = _cached_cdf(model.step_probs(state), active_settings, cdf_cache)
+        encoder.push_symbol(cdf, token_id, validate=False)
         model.advance(state, token_id)
         if frame_bits is None:
             if encoder.bit_count < header_bits:
@@ -130,6 +131,20 @@ def decode(
         return payload
 
     raise LMCodecError("truncated message")
+
+
+def _cached_cdf(
+    raw_probs: Sequence[float],
+    settings: CodecSettings,
+    cache: dict[tuple[float, ...], tuple[int, ...]],
+) -> tuple[int, ...]:
+    key = tuple(raw_probs)
+    cdf = cache.get(key)
+    if cdf is None:
+        probs = shape_probabilities(key, settings.shape)
+        cdf = quantize(probs, total=settings.total).cdf
+        cache[key] = cdf
+    return cdf
 
 
 def _validate_settings(settings: CodecSettings) -> None:
