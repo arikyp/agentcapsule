@@ -9,6 +9,13 @@ All notable changes to LMCodec are tracked here.
 - Added a documented benchmark JSON schema contract at
   `schemas/benchmark_result_v1.json`.
 - Added a bounded V2 experiment runner with reproducible artifacts.
+- Added V2 baseline, experiment protocol, autoagent guardrail docs, and initial
+  V2 fixed, n-gram, and Transformer anchor configs.
+- Added the first V2 sprint plan and bounded n-gram order-2 stress configs.
+- Added a result comparison helper, candidate report template, and first
+  autoagent-safe n-gram budget configs.
+- Added the third V2 sprint plan, order-3 stress configs, and an order-3
+  candidate report.
 - Added carrier quality metrics and corpus report utilities.
 - Added stress tests for roundtrip, range coder, quantizer, and corruption
   handling.
