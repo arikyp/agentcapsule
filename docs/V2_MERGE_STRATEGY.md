@@ -88,3 +88,25 @@ the 1MB matrix/results commit.
 
 After this branch, a Transformer-focused comparison branch is reasonable. It
 should compare against the n-gram evidence rather than replacing it.
+
+## Transformer Comparison Branch
+
+The Transformer comparison branch is:
+
+```text
+codex/v2-transformer-comparison-against-ngram-baselines
+```
+
+It should remain stacked after the 1MB ceiling branch unless the earlier V2
+runtime/evidence branches have already merged.
+
+Result summary:
+
+- Matrix: `experiments/matrices/v2_transformer_comparison.json`
+- Results: `docs/V2_TRANSFORMER_COMPARISON_RESULTS.md`
+- Outcome: 48/48 hard gates passed.
+- Decision: keep the Transformer fixture as a regression anchor; do not promote
+  it over the n-gram baselines.
+
+If this branch is split from the stack later, keep it as docs plus matrix only.
+It should not carry runtime hot-path or n-gram ceiling changes.
