@@ -5,9 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from lmcodec.armour import make_armour, parse_armour
-from lmcodec.bitstream import bytes_to_bits
+from lmcodec.bitstream import bits_to_bytes, bytes_to_bits
 from lmcodec.errors import LMCodecError
-from lmcodec.framing import build_frame, try_parse_frame_bits
+from lmcodec.framing import HEADER_SIZE, build_frame, read_frame_header, try_parse_frame_bits
 from lmcodec.lm import FixedLM, NGramLM
 from lmcodec.probability import ProbabilityShapeSettings, shape_probabilities
 from lmcodec.quantizer import DEFAULT_TOTAL, quantize
@@ -61,16 +61,16 @@ def encode(
     step_limit = max_steps if max_steps is not None else max(1024, len(target_bits) * 64)
     steps = 0
 
-    while not _has_prefix(mirror.preview_finish(), target_bits):
+    while not mirror.preview_finish_extends_prefix(target_bits):
         if steps >= step_limit:
             raise LMCodecError("encoding did not converge")
         probs = shape_probabilities(model.step_probs(state), settings.shape)
         cdf = quantize(probs, total=settings.total).cdf
         token_id = source.pop_symbol(cdf)
         tokens.append(model.id_to_token(token_id))
+        previous_bit_count = mirror.bit_count
         mirror.push_symbol(cdf, token_id)
-        emitted = mirror.bits
-        if not _prefix_is_still_possible(emitted, target_bits):
+        if not mirror.emitted_prefix_matches_from(target_bits, previous_bit_count):
             raise AssertionError("range coder mirror diverged from target bits")
         model.advance(state, token_id)
         steps += 1
@@ -104,6 +104,8 @@ def decode(
 
     state = model.init_state()
     encoder = RangeEncoder()
+    header_bits = HEADER_SIZE * 8
+    frame_bits: int | None = None
     for token in block.payload_text:
         try:
             token_id = model.token_to_id(token)
@@ -113,24 +115,21 @@ def decode(
         cdf = quantize(probs, total=active_settings.total).cdf
         encoder.push_symbol(cdf, token_id)
         model.advance(state, token_id)
-        payload = try_parse_frame_bits(encoder.bits)
-        if payload is not None:
-            return payload
+        if frame_bits is None:
+            if encoder.bit_count < header_bits:
+                continue
+            header = bits_to_bytes(encoder.bits_prefix(header_bits))
+            frame_bits = read_frame_header(header).total_len * 8
+        if encoder.bit_count >= frame_bits:
+            payload = try_parse_frame_bits(encoder.bits_prefix(frame_bits))
+            if payload is not None:
+                return payload
 
     payload = try_parse_frame_bits(encoder.finish())
     if payload is not None:
         return payload
 
     raise LMCodecError("truncated message")
-
-
-def _has_prefix(emitted: tuple[int, ...], target: list[int]) -> bool:
-    return len(emitted) >= len(target) and list(emitted[: len(target)]) == target
-
-
-def _prefix_is_still_possible(emitted: tuple[int, ...], target: list[int]) -> bool:
-    checked = min(len(emitted), len(target))
-    return list(emitted[:checked]) == target[:checked]
 
 
 def _validate_settings(settings: CodecSettings) -> None:

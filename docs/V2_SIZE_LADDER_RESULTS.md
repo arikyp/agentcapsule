@@ -2,6 +2,10 @@
 
 Date: 2026-05-08
 
+Update: the timeout boundary described here was superseded by the runtime
+hot-path checkpoint in `docs/V2_RUNTIME_HOTPATH_CHECKPOINT.md`. The original
+results remain useful as the baseline that motivated profiling.
+
 Matrix:
 
 - `experiments/matrices/v2_size_ladder.json`

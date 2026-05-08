@@ -2,6 +2,11 @@
 
 Date: 2026-05-08
 
+Update: the runtime hot-path checkpoint in
+`docs/V2_RUNTIME_HOTPATH_CHECKPOINT.md` supersedes the runtime boundary
+reported here. The original results remain useful as the baseline large-payload
+stress finding.
+
 Matrix:
 
 - `experiments/matrices/v2_large_payload_realish.json`

@@ -40,6 +40,13 @@ class RangeEncoder:
     def bits(self) -> tuple[int, ...]:
         return tuple(self._bits)
 
+    @property
+    def bit_count(self) -> int:
+        return len(self._bits)
+
+    def bits_prefix(self, count: int) -> tuple[int, ...]:
+        return tuple(self._bits[:count])
+
     def push_symbol(self, cdf: Sequence[int], symbol: int) -> None:
         if self._finished:
             raise ValueError("cannot push symbols after finish")
@@ -90,6 +97,41 @@ class RangeEncoder:
         clone._bits = list(self._bits)
         clone._finished = self._finished
         return clone.finish()
+
+    def emitted_prefix_matches(self, target: Sequence[int]) -> bool:
+        """Return whether emitted bits can still match target's prefix."""
+
+        return self.emitted_prefix_matches_from(target, 0)
+
+    def emitted_prefix_matches_from(self, target: Sequence[int], start: int) -> bool:
+        """Return whether emitted bits from start still match target."""
+
+        checked = min(len(self._bits), len(target))
+        for idx in range(start, checked):
+            if self._bits[idx] != target[idx]:
+                return False
+        return True
+
+    def preview_finish_extends_prefix(self, target: Sequence[int]) -> bool:
+        """Return whether finishing now would extend a known-valid prefix."""
+
+        if self._finished:
+            return len(self._bits) >= len(target)
+
+        pending = self._pending_bits + 1
+        first_bit = 0 if self.low < FIRST_QTR else 1
+        finished_len = len(self._bits) + 1 + pending
+        if finished_len < len(target):
+            return False
+        for idx in range(len(self._bits), len(target)):
+            expected = target[idx]
+            if idx == len(self._bits):
+                bit = first_bit
+            else:
+                bit = 1 - first_bit
+            if bit != expected:
+                return False
+        return True
 
     def _emit_bit_plus_pending(self, bit: int) -> None:
         self._bits.append(bit)
