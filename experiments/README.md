@@ -37,3 +37,9 @@ Run the V2 checkpoint matrix:
 ```bash
 scripts/run_matrix.py experiments/matrices/v2_checkpoint.json
 ```
+
+Run the larger real-ish corpus stress matrix:
+
+```bash
+scripts/run_matrix.py experiments/matrices/v2_large_payload_realish.json
+```

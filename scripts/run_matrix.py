@@ -9,11 +9,15 @@ import hashlib
 import json
 import subprocess
 import sys
+from collections import Counter
 from pathlib import Path
 from statistics import mean
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+from lmcodec.lm import default_vocab  # noqa: E402
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -101,6 +105,13 @@ def _payload_bytes(spec: dict[str, Any]) -> bytes:
     if kind == "repeat":
         token = spec.get("token", "").encode("utf-8")
         return token * int(spec["count"])
+    if kind == "text_repeat":
+        target_bytes = int(spec["bytes"])
+        token = spec.get("token", "lmcodec v2 stress payload line\n").encode("utf-8")
+        if not token:
+            raise ValueError("text_repeat token must not be empty")
+        repeated = token * ((target_bytes // len(token)) + 1)
+        return repeated[:target_bytes]
     raise ValueError(f"unsupported payload kind: {kind}")
 
 
@@ -116,22 +127,25 @@ def _materialize_corpora(corpus_specs: list[dict[str, Any]], output_dir: Path) -
         heldout_path = corpus_dir / "heldout.txt"
         corpus_report = corpus_dir / "corpus_report.json"
         split_report = corpus_dir / "split_report.json"
-        _run_checked(
-            [
-                sys.executable,
-                str(ROOT / "scripts" / "build_carrier_corpus.py"),
-                "--out",
-                str(corpus_path),
-                "--lines",
-                str(int(spec.get("lines", 240))),
-                "--seed",
-                str(int(spec.get("seed", 42))),
-                "--domain",
-                spec["domain"],
-                "--report-json",
-                str(corpus_report),
-            ]
-        )
+        if spec.get("kind", "synthetic") == "files":
+            _write_file_corpus(spec, corpus_path, corpus_report)
+        else:
+            _run_checked(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "build_carrier_corpus.py"),
+                    "--out",
+                    str(corpus_path),
+                    "--lines",
+                    str(int(spec.get("lines", 240))),
+                    "--seed",
+                    str(int(spec.get("seed", 42))),
+                    "--domain",
+                    spec["domain"],
+                    "--report-json",
+                    str(corpus_report),
+                ]
+            )
         _run_checked(
             [
                 sys.executable,
@@ -154,7 +168,8 @@ def _materialize_corpora(corpus_specs: list[dict[str, Any]], output_dir: Path) -
         corpora.append(
             {
                 "name": name,
-                "domain": spec["domain"],
+                "domain": spec.get("domain", name),
+                "kind": spec.get("kind", "synthetic"),
                 "corpus_path": str(corpus_path),
                 "train_path": str(train_path),
                 "heldout_path": str(heldout_path),
@@ -245,6 +260,8 @@ def _run_config(item: dict[str, Any]) -> dict[str, Any]:
         "heldout_nll_bits": result.get("heldout_nll_bits"),
         "bits_per_carrier_char": result.get("bits_per_carrier_char"),
         "carrier_chars": result.get("carrier_chars"),
+        "encode_seconds": result.get("encode_seconds"),
+        "decode_seconds": result.get("decode_seconds"),
         "avg_top_probability": result.get("avg_top_probability"),
         "error_message": result.get("error_message"),
     }
@@ -279,6 +296,8 @@ def _candidate_rankings(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "mean_heldout_nll_bits": _mean_present(items, "heldout_nll_bits"),
                 "mean_avg_entropy_bits": _mean_present(items, "avg_entropy_bits"),
                 "mean_bits_per_carrier_char": _mean_present(items, "bits_per_carrier_char"),
+                "mean_encode_seconds": _mean_present(items, "encode_seconds"),
+                "mean_decode_seconds": _mean_present(items, "decode_seconds"),
                 "mean_avg_top_probability": _mean_present(items, "avg_top_probability"),
             }
         )
@@ -314,6 +333,68 @@ def _run_checked(command: list[str]) -> None:
         raise RuntimeError(f"command failed: {' '.join(command)}\n{completed.stdout}")
 
 
+def _write_file_corpus(spec: dict[str, Any], corpus_path: Path, report_path: Path) -> None:
+    paths = [_resolve_source_path(path) for path in spec.get("paths", [])]
+    if not paths:
+        raise ValueError("files corpus requires at least one path")
+    allowed = set(default_vocab())
+    chunks = []
+    source_reports = []
+    max_chars = spec.get("max_chars")
+    remaining = int(max_chars) if max_chars is not None else None
+    for path in paths:
+        raw = path.read_text(encoding="utf-8")
+        filtered = _filter_text_for_vocab(raw, allowed)
+        if remaining is not None:
+            if remaining <= 0:
+                filtered = ""
+            else:
+                filtered = filtered[:remaining]
+                remaining -= len(filtered)
+        chunks.append(filtered)
+        source_reports.append(
+            {
+                "path": str(path),
+                "raw_chars": len(raw),
+                "filtered_chars": len(filtered),
+                "raw_sha256": hashlib.sha256(raw.encode("utf-8")).hexdigest(),
+            }
+        )
+    text = "\n".join(chunk.strip() for chunk in chunks if chunk.strip()) + "\n"
+    if not text.strip():
+        raise ValueError("files corpus produced no usable text")
+    corpus_path.write_text(text, encoding="utf-8", newline="\n")
+    counts = Counter(text)
+    report_path.write_text(
+        json.dumps(
+            {
+                "kind": "files",
+                "name": spec["name"],
+                "sources": source_reports,
+                "chars": len(text),
+                "unique_chars": len(counts),
+                "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _resolve_source_path(value: str) -> Path:
+    path = Path(value)
+    if path.is_absolute():
+        return path
+    return ROOT / path
+
+
+def _filter_text_for_vocab(text: str, allowed: set[str]) -> str:
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n").lower()
+    return "".join(char if char in allowed or char == "\n" else " " for char in normalized)
+
+
 def _print_summary(summary: dict[str, Any]) -> None:
     print(f"matrix: {summary['matrix_name']}")
     print(f"output: {summary['output_dir']}")
@@ -325,7 +406,8 @@ def _print_summary(summary: dict[str, Any]) -> None:
         print(
             f"{ranking['candidate']}: hard_gate_failures={ranking['hard_gate_failures']} "
             f"mean_nll={_format_float(ranking['mean_heldout_nll_bits'])} "
-            f"mean_entropy={_format_float(ranking['mean_avg_entropy_bits'])}"
+            f"mean_entropy={_format_float(ranking['mean_avg_entropy_bits'])} "
+            f"mean_encode_s={_format_float(ranking['mean_encode_seconds'])}"
         )
 
 

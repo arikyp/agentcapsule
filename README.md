@@ -259,6 +259,8 @@ Pinned Transformer fixture metrics for `bytes(range(256))` with
   report shape for reviewed V2 candidates.
 - [docs/V2_CHECKPOINT.md](docs/V2_CHECKPOINT.md): V2 research checkpoint,
   matrix ranking, and merge recommendation.
+- [docs/V2_LARGE_PAYLOAD_REAL_CORPUS_STRESS.md](docs/V2_LARGE_PAYLOAD_REAL_CORPUS_STRESS.md):
+  next stress lane for larger payloads and real-ish corpora.
 - [docs/V2_SPRINT_1.md](docs/V2_SPRINT_1.md): first V2 candidate stress
   sprint.
 - [docs/V2_SPRINT_2.md](docs/V2_SPRINT_2.md): first autoagent-safe
