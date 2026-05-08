@@ -85,13 +85,14 @@ but that requires raising `max_steps` above this matrix's 5,000,000 budget.
 
 Do not train a Transformer yet.
 
-The next substantive branch should stress:
+The follow-up 1MB ceiling branch is recorded in
+`docs/V2_1MB_REAL_CORPUS_CEILING_RESULTS.md`; all 12 cells passed hard gates.
 
-- 1MB deterministic binary/text payloads,
+The next substantive branch after that can stress:
+
 - a larger or external corpus source,
-- the current quality and balanced order-3 candidates first,
-- order-2 only as a fallback comparator.
+- Transformer comparison against the current n-gram baselines,
+- the current 1MB matrix as a regression and budget reference.
 
-If 1MB passes with the same candidate ordering, then V2 has enough n-gram
-runtime and safety evidence to justify either a merge as a stronger baseline or
-a carefully scoped Transformer-training branch.
+V2 now has enough n-gram runtime and safety evidence to justify merge as a
+stronger baseline, followed by a carefully scoped Transformer comparison branch.

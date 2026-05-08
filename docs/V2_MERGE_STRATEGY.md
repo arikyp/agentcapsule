@@ -66,12 +66,25 @@ Recommended summary:
 
 ## Next Branch
 
-Use a separate branch for the next ceiling-finding pass:
+The follow-on ceiling-finding branch is:
 
 ```text
-v2-1mb-real-corpus-ceiling
+codex/v2-1mb-real-corpus-ceiling
 ```
 
-That branch should focus on 1MB deterministic payloads and larger or external
-corpora. It should not mix in Transformer training unless the n-gram ceiling and
-candidate ordering are already clear.
+It focuses on 1MB deterministic payloads and broader local corpora. It does not
+mix in Transformer training.
+
+Result summary:
+
+- Matrix: `experiments/matrices/v2_1mb_real_corpus_ceiling.json`
+- Results: `docs/V2_1MB_REAL_CORPUS_CEILING_RESULTS.md`
+- Outcome: 12/12 hard gates passed.
+
+If this branch is reviewed before the runtime branch merges, treat it as a
+stacked branch on top of `codex/v2-profile-encode-hotpath`. If the runtime
+branch merges first, rebase this branch onto the V2 base branch and keep only
+the 1MB matrix/results commit.
+
+After this branch, a Transformer-focused comparison branch is reasonable. It
+should compare against the n-gram evidence rather than replacing it.
