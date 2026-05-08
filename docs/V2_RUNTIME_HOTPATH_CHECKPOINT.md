@@ -126,7 +126,9 @@ baseline. The practical payload ceiling has moved materially: 64KB no longer
 times out for the profiled order-3 quality cell, and a 100KB real-ish binary
 stress cell completes in under 5 seconds of measured encode/decode time.
 
-The next substantive step should broaden the matrix again under the new runtime
-budget, especially 100KB cells across candidates and corpora. If those pass,
-the following engineering target is range-coder arithmetic cost rather than
-probability or frame probing.
+Follow-up matrix broadening completed in
+`docs/V2_LARGE_PAYLOAD_STRESS_RESULTS.md`: all 36 large-payload real-ish cells
+passed hard gates under a 60-second per-cell cap. The next substantive step is
+broader corpus realism and larger payload sizes before changing model family.
+If another runtime optimization is needed, the next measured target is
+range-coder arithmetic cost rather than probability or frame probing.
