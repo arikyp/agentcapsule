@@ -261,6 +261,12 @@ Pinned Transformer fixture metrics for `bytes(range(256))` with
   matrix ranking, and merge recommendation.
 - [docs/V2_LARGE_PAYLOAD_REAL_CORPUS_STRESS.md](docs/V2_LARGE_PAYLOAD_REAL_CORPUS_STRESS.md):
   next stress lane for larger payloads and real-ish corpora.
+- [docs/V2_LARGE_PAYLOAD_STRESS_RESULTS.md](docs/V2_LARGE_PAYLOAD_STRESS_RESULTS.md):
+  capped large-payload stress results and runtime finding.
+- [docs/V2_SIZE_LADDER.md](docs/V2_SIZE_LADDER.md): scaled payload ladder for
+  locating the current runtime knee.
+- [docs/V2_SIZE_LADDER_RESULTS.md](docs/V2_SIZE_LADDER_RESULTS.md): observed
+  32KB/64KB runtime boundary.
 - [docs/V2_SPRINT_1.md](docs/V2_SPRINT_1.md): first V2 candidate stress
   sprint.
 - [docs/V2_SPRINT_2.md](docs/V2_SPRINT_2.md): first autoagent-safe

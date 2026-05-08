@@ -1,0 +1,125 @@
+{
+  "matrix_name": "v2-size-ladder",
+  "output_dir": "experiments/runs/v2_size_ladder_matrix",
+  "wrap": 80,
+  "max_steps": 700000,
+  "run_golden_tests": false,
+  "payloads": [
+    {
+      "name": "binary_16kb",
+      "kind": "range",
+      "start": 11,
+      "count": 16384
+    },
+    {
+      "name": "binary_32kb",
+      "kind": "range",
+      "start": 23,
+      "count": 32768
+    },
+    {
+      "name": "binary_64kb",
+      "kind": "range",
+      "start": 47,
+      "count": 65536
+    },
+    {
+      "name": "text_16kb",
+      "kind": "text_repeat",
+      "bytes": 16384,
+      "token": "lmcodec size ladder text payload records runtime and roundtrip behavior\n"
+    },
+    {
+      "name": "text_32kb",
+      "kind": "text_repeat",
+      "bytes": 32768,
+      "token": "the scaled payload ladder finds the practical runtime knee for v2\n"
+    },
+    {
+      "name": "text_64kb",
+      "kind": "text_repeat",
+      "bytes": 65536,
+      "token": "deterministic text stress checks entropy bits carrier length and runtime\n"
+    }
+  ],
+  "corpora": [
+    {
+      "name": "project_docs",
+      "kind": "files",
+      "domain": "project_docs",
+      "paths": [
+        "README.md",
+        "CHANGELOG.md",
+        "docs/ALGORITHM.md",
+        "docs/CARRIER_QUALITY.md",
+        "docs/V2_CHECKPOINT.md",
+        "docs/V2_LARGE_PAYLOAD_STRESS_RESULTS.md"
+      ],
+      "heldout_ratio": 0.2,
+      "split_seed": 303,
+      "max_chars": 140000
+    }
+  ],
+  "candidates": [
+    {
+      "name": "order3_quality",
+      "model": {
+        "type": "ngram",
+        "training": {
+          "order": 3,
+          "alpha": 1.0,
+          "uniform_mix": 0.75
+        }
+      },
+      "shape_settings": {
+        "uniform_mix": 0.0,
+        "temperature": 1.0,
+        "min_probability": 0.0,
+        "min_entropy_bits": 0.0
+      },
+      "promotion_gate": {
+        "min_entropy_bits": 5.4
+      }
+    },
+    {
+      "name": "order3_balanced_shape",
+      "model": {
+        "type": "ngram",
+        "training": {
+          "order": 3,
+          "alpha": 1.0,
+          "uniform_mix": 0.75
+        }
+      },
+      "shape_settings": {
+        "uniform_mix": 0.1,
+        "temperature": 1.15,
+        "min_probability": 0.0,
+        "min_entropy_bits": 0.0
+      },
+      "promotion_gate": {
+        "min_entropy_bits": 5.6
+      }
+    },
+    {
+      "name": "order2_safety_mix",
+      "model": {
+        "type": "ngram",
+        "training": {
+          "order": 2,
+          "alpha": 1.0,
+          "uniform_mix": 0.85
+        }
+      },
+      "shape_settings": {
+        "uniform_mix": 0.0,
+        "temperature": 1.0,
+        "min_probability": 0.0,
+        "min_entropy_bits": 0.0
+      },
+      "promotion_gate": {
+        "min_entropy_bits": 5.6
+      }
+    }
+  ]
+}

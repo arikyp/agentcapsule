@@ -66,6 +66,20 @@ scripts/run_matrix.py experiments/matrices/v2_large_payload_realish.json
 The full matrix is expected to be materially slower than the checkpoint matrix
 because it includes 100KB payloads.
 
+For long runs, use resume and a per-cell timeout:
+
+```bash
+scripts/run_matrix.py experiments/matrices/v2_large_payload_realish.json \
+  --resume \
+  --timeout-seconds 60
+```
+
+The runner prints per-cell progress and writes incremental status records to:
+
+```text
+experiments/runs/v2_large_payload_realish_matrix/matrix_progress.jsonl
+```
+
 Individual `run_experiment.py` cells may print `promotion passed: False`
 because matrix cells set `run_golden_tests=false`. The matrix-level hard gate
 still requires no error, roundtrip success, decoded SHA256 match, model
@@ -82,6 +96,25 @@ Two generated configs were run to validate the matrix path before the full
 | --- | --- | --- | ---: | ---: | --- |
 | `order3_quality` / `project_docs` | `binary_1kb` | pass | 5.932 | 5.980 | pass |
 | `order3_balanced_shape` / `v2_reports` | `text_10kb` | pass | 5.959 | 6.000 | pass |
+
+An initial full run reached the first 100KB payload and stayed CPU-bound for
+more than 10 minutes in a single cell. That run was stopped and converted into
+this branch-level requirement: long stress matrices need progress, resume, and
+per-cell timeout controls before they are useful as routine checks.
+
+## Capped Matrix Results
+
+The matrix was resumed with:
+
+```bash
+scripts/run_matrix.py experiments/matrices/v2_large_payload_realish.json \
+  --resume \
+  --timeout-seconds 30
+```
+
+Results are summarized in:
+
+- `docs/V2_LARGE_PAYLOAD_STRESS_RESULTS.md`
 
 ## Acceptance
 

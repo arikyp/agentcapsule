@@ -20,11 +20,31 @@ sys.path.insert(0, str(ROOT / "src"))
 from lmcodec.lm import default_vocab  # noqa: E402
 
 
+_PROGRESS_FIELDS = [
+    "experiment_name",
+    "candidate",
+    "corpus",
+    "payload",
+    "status",
+    "hard_gate_passed",
+    "roundtrip_success",
+    "encode_seconds",
+    "decode_seconds",
+    "heldout_nll_bits",
+    "avg_entropy_bits",
+    "bits_per_carrier_char",
+    "error_message",
+]
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("matrix", help="matrix JSON spec")
     parser.add_argument("--output-dir", help="override matrix output directory")
     parser.add_argument("--dry-run", action="store_true", help="write generated configs without running experiments")
+    parser.add_argument("--resume", action="store_true", help="reuse existing result.json files")
+    parser.add_argument("--timeout-seconds", type=float, help="per-cell timeout")
+    parser.add_argument("--quiet", action="store_true", help="suppress per-cell progress lines")
     args = parser.parse_args(argv)
 
     matrix_path = Path(args.matrix)
@@ -38,8 +58,21 @@ def main(argv: list[str] | None = None) -> int:
 
     records = []
     if not args.dry_run:
-        for item in configs:
-            records.append(_run_config(item))
+        progress_path = output_dir / "matrix_progress.jsonl"
+        progress_records = _load_progress_records(progress_path) if args.resume else {}
+        for index, item in enumerate(configs, start=1):
+            records.append(
+                _run_config(
+                    item,
+                    index=index,
+                    total=len(configs),
+                    timeout_seconds=args.timeout_seconds,
+                    resume=args.resume,
+                    previous_record=progress_records.get(item["experiment_name"]),
+                    quiet=args.quiet,
+                    progress_path=progress_path,
+                )
+            )
 
     summary = {
         "schema_version": 1,
@@ -237,22 +270,86 @@ def _candidate_config(
     }
 
 
-def _run_config(item: dict[str, Any]) -> dict[str, Any]:
-    completed = subprocess.run(
-        [sys.executable, str(ROOT / "scripts" / "run_experiment.py"), item["config_path"]],
-        cwd=ROOT,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        check=False,
-    )
+def _run_config(
+    item: dict[str, Any],
+    *,
+    index: int = 1,
+    total: int = 1,
+    timeout_seconds: float | None = None,
+    resume: bool = False,
+    previous_record: dict[str, Any] | None = None,
+    quiet: bool = False,
+    progress_path: Path | None = None,
+) -> dict[str, Any]:
     result_path = Path(item["result_path"])
-    result = json.loads(result_path.read_text(encoding="utf-8")) if result_path.exists() else {}
+    if resume and previous_record is not None and previous_record.get("status") == "timeout":
+        record = {**item, **previous_record, "status": "reused-timeout"}
+        _progress(record, index=index, total=total, quiet=quiet, progress_path=None)
+        return record
+    if resume and result_path.exists():
+        result = json.loads(result_path.read_text(encoding="utf-8"))
+        record = _record_from_result(item, result, returncode=0, stdout="", status="reused")
+        _progress(record, index=index, total=total, quiet=quiet, progress_path=progress_path)
+        return record
+
+    if not quiet:
+        print(f"[{index}/{total}] start {item['candidate']} {item['corpus']} {item['payload']}", flush=True)
+
+    try:
+        completed = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "run_experiment.py"), item["config_path"]],
+            cwd=ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+            timeout=timeout_seconds,
+        )
+        result = json.loads(result_path.read_text(encoding="utf-8")) if result_path.exists() else {}
+        record = _record_from_result(item, result, returncode=completed.returncode, stdout=completed.stdout, status="completed")
+    except subprocess.TimeoutExpired as exc:
+        record = {
+            **item,
+            "returncode": None,
+            "stdout": exc.stdout or "",
+            "status": "timeout",
+            "hard_gate_passed": False,
+            "hard_gate_checks": {
+                "no_error": False,
+                "roundtrip_success": False,
+                "decoded_sha256_matches": False,
+                "model_fingerprint_stable": False,
+                "entropy_above_minimum": False,
+                "no_convergence_failure": False,
+            },
+            "roundtrip_success": False,
+            "avg_entropy_bits": None,
+            "heldout_nll_bits": None,
+            "bits_per_carrier_char": None,
+            "carrier_chars": None,
+            "encode_seconds": None,
+            "decode_seconds": None,
+            "avg_top_probability": None,
+            "error_message": f"timed out after {timeout_seconds:.1f} seconds",
+        }
+    _progress(record, index=index, total=total, quiet=quiet, progress_path=progress_path)
+    return record
+
+
+def _record_from_result(
+    item: dict[str, Any],
+    result: dict[str, Any],
+    *,
+    returncode: int | None,
+    stdout: str,
+    status: str,
+) -> dict[str, Any]:
     hard_gate = _hard_gate(result)
     return {
         **item,
-        "returncode": completed.returncode,
-        "stdout": completed.stdout,
+        "returncode": returncode,
+        "stdout": stdout,
+        "status": status,
         "hard_gate_passed": hard_gate["passed"],
         "hard_gate_checks": hard_gate["checks"],
         "roundtrip_success": result.get("roundtrip_success"),
@@ -265,6 +362,31 @@ def _run_config(item: dict[str, Any]) -> dict[str, Any]:
         "avg_top_probability": result.get("avg_top_probability"),
         "error_message": result.get("error_message"),
     }
+
+
+def _progress(
+    record: dict[str, Any],
+    *,
+    index: int,
+    total: int,
+    quiet: bool,
+    progress_path: Path | None,
+) -> None:
+    status = "ok" if record["hard_gate_passed"] else "fail"
+    if record.get("status") == "timeout":
+        status = "timeout"
+    if not quiet:
+        print(
+            f"[{index}/{total}] {status} {record['candidate']} {record['corpus']} {record['payload']} "
+            f"encode_s={_format_float(record.get('encode_seconds'))} "
+            f"decode_s={_format_float(record.get('decode_seconds'))} "
+            f"nll={_format_float(record.get('heldout_nll_bits'))}",
+            flush=True,
+        )
+    if progress_path is not None:
+        progress_path.parent.mkdir(parents=True, exist_ok=True)
+        with progress_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps({key: record.get(key) for key in _PROGRESS_FIELDS}, sort_keys=True) + "\n")
 
 
 def _hard_gate(result: dict[str, Any]) -> dict[str, Any]:
@@ -331,6 +453,20 @@ def _run_checked(command: list[str]) -> None:
     )
     if completed.returncode != 0:
         raise RuntimeError(f"command failed: {' '.join(command)}\n{completed.stdout}")
+
+
+def _load_progress_records(progress_path: Path) -> dict[str, dict[str, Any]]:
+    records: dict[str, dict[str, Any]] = {}
+    if not progress_path.exists():
+        return records
+    for line in progress_path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        record = json.loads(line)
+        name = record.get("experiment_name")
+        if name:
+            records[name] = record
+    return records
 
 
 def _write_file_corpus(spec: dict[str, Any], corpus_path: Path, report_path: Path) -> None:

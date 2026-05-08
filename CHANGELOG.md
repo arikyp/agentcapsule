@@ -20,6 +20,12 @@ All notable changes to LMCodec are tracked here.
   candidate reports, and a V2 research checkpoint.
 - Added the next V2 stress-lane matrix for larger payloads, real-ish local
   corpora, and runtime signals.
+- Added capped large-payload stress results showing the current 100KB runtime
+  boundary.
+- Added a scaled V2 size-ladder matrix for 16KB, 32KB, and 64KB payloads.
+- Added partial size-ladder results identifying 32KB as the current routine
+  stress ceiling before runtime profiling.
+- Added a profiling helper for single experiment configs.
 - Added carrier quality metrics and corpus report utilities.
 - Added stress tests for roundtrip, range coder, quantizer, and corruption
   handling.

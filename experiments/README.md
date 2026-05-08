@@ -43,3 +43,9 @@ Run the larger real-ish corpus stress matrix:
 ```bash
 scripts/run_matrix.py experiments/matrices/v2_large_payload_realish.json
 ```
+
+Run the scaled payload-size ladder:
+
+```bash
+scripts/run_matrix.py experiments/matrices/v2_size_ladder.json --resume --timeout-seconds 180
+```

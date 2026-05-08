@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+import json
 from pathlib import Path
 
 from scripts import run_matrix
@@ -94,6 +95,24 @@ class RunMatrixTests(unittest.TestCase):
         hard_gate = run_matrix._hard_gate(result)
 
         self.assertTrue(hard_gate["passed"])
+
+    def test_load_progress_records_keeps_latest_record_by_experiment(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "progress.jsonl"
+            path.write_text(
+                "\n".join(
+                    [
+                        json.dumps({"experiment_name": "cell", "status": "completed"}),
+                        json.dumps({"experiment_name": "cell", "status": "timeout"}),
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            records = run_matrix._load_progress_records(path)
+
+            self.assertEqual(records["cell"]["status"], "timeout")
 
 
 if __name__ == "__main__":
