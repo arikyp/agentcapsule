@@ -177,3 +177,5 @@ agent traces, not a final enterprise enforcement engine.
 The next design branch should specify Ed25519 public-key signing before any
 implementation work. That design needs dependency, license, key discovery,
 identity binding, rotation, revocation, and interoperability decisions.
+The current proposal is documented in
+[AGENT_CAPSULE_ED25519_DESIGN.md](AGENT_CAPSULE_ED25519_DESIGN.md).

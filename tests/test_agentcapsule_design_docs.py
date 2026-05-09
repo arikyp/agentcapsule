@@ -1,0 +1,37 @@
+import tomllib
+import unittest
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+class AgentCapsuleDesignDocsTests(unittest.TestCase):
+    def test_ed25519_design_doc_exists_and_defers_implementation(self) -> None:
+        text = (ROOT / "docs" / "AGENT_CAPSULE_ED25519_DESIGN.md").read_text(encoding="utf-8")
+
+        self.assertIn("This document specifies the proposed Ed25519", text)
+        self.assertIn("It does not add runtime dependencies or implement Ed25519 signing.", text)
+        self.assertIn("signature: ed25519", text)
+        self.assertIn("signature_public_key_fingerprint", text)
+        self.assertIn("agentcapsule.signing.signed_bytes", text)
+        self.assertIn("Keep core `lmcodec` dependency-free", text)
+
+    def test_agent_capsule_docs_link_ed25519_design(self) -> None:
+        for path in (
+            ROOT / "README.md",
+            ROOT / "docs" / "AGENT_CAPSULE_PROTOCOL_V0.md",
+            ROOT / "docs" / "AGENT_CAPSULE_PRODUCT_BRIEF.md",
+            ROOT / "docs" / "AGENT_CAPSULE_THREAT_MODEL.md",
+        ):
+            with self.subTest(path=path):
+                self.assertIn("AGENT_CAPSULE_ED25519_DESIGN.md", path.read_text(encoding="utf-8"))
+
+    def test_project_dependencies_remain_empty(self) -> None:
+        data = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+
+        self.assertEqual(data["project"]["dependencies"], [])
+
+
+if __name__ == "__main__":
+    unittest.main()

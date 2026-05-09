@@ -236,6 +236,8 @@ payload text. Changing metadata or payload text invalidates the signature.
 
 For the full V0 security posture, see
 [AGENT_CAPSULE_THREAT_MODEL.md](AGENT_CAPSULE_THREAT_MODEL.md).
+For the proposed public-key signing path, see
+[AGENT_CAPSULE_ED25519_DESIGN.md](AGENT_CAPSULE_ED25519_DESIGN.md).
 
 ## Example Capsule
 
