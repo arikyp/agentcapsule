@@ -8,7 +8,7 @@ from pathlib import Path
 from agentcapsule.cli import main
 from agentcapsule.envelope import build_envelope, render_envelope
 from agentcapsule.errors import CapsulePolicyError
-from agentcapsule.policy import load_policy, policy_from_mapping
+from agentcapsule.policy import load_policy, policy_from_mapping, policy_to_dict
 from agentcapsule.registry import describe_codec, known_codecs, list_codecs
 from agentcapsule.scanner import scan_text
 
@@ -33,6 +33,37 @@ class AgentCapsulePolicyTests(unittest.TestCase):
             self.assertFalse(policy.allow_unsigned)
             self.assertEqual(policy.allowed_content_types, frozenset({"application/octet-stream"}))
             self.assertEqual(policy.max_payload_bytes, 7)
+
+    def test_policy_examples_load(self) -> None:
+        examples = [
+            "examples/agent_capsule_demo/policy-observe.json",
+            "examples/agent_capsule_demo/policy-strict.json",
+            "examples/agent_capsule_demo/policy-require-hmac.json",
+            "examples/agent_capsule_demo/policy-small-bundle-only.json",
+        ]
+
+        policies = [load_policy(Path(path)) for path in examples]
+
+        self.assertTrue(policies[0].allow_unsigned)
+        self.assertFalse(policies[2].allow_unsigned)
+        self.assertEqual(policies[2].required_signature_modes, frozenset({"hmac-sha256"}))
+        self.assertEqual(policies[3].allowed_content_types, frozenset({"application/vnd.agent.bundle+json"}))
+
+    def test_policy_to_dict_is_json_ready(self) -> None:
+        policy = policy_from_mapping(
+            {
+                "allow_unsigned": False,
+                "required_signature_modes": ["hmac-sha256"],
+                "allowed_content_types": ["application/octet-stream"],
+            }
+        )
+
+        payload = policy_to_dict(policy)
+
+        self.assertEqual(payload["allow_unsigned"], False)
+        self.assertEqual(payload["required_signature_modes"], ["hmac-sha256"])
+        self.assertEqual(payload["allowed_content_types"], ["application/octet-stream"])
+        json.dumps(payload)
 
     def test_policy_rejects_unknown_fields(self) -> None:
         with self.assertRaisesRegex(CapsulePolicyError, "unknown policy fields"):

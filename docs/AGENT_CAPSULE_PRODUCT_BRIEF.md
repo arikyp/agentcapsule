@@ -37,6 +37,7 @@ CapsuleGuard / AI text channel governance:
 - detect exact-payload artifacts in text channels,
 - distinguish declared capsules from suspicious dense text,
 - enforce inspect-before-use flows,
+- emit governance dispositions such as allow, review, or block,
 - produce audit-friendly metadata,
 - emit machine-readable JSON for governance logs and agent traces,
 - surface typed scan findings with source location and capped evidence,
@@ -66,3 +67,6 @@ Later product layers:
 
 V0 intentionally stays small: exact artifact to inspectable text capsule,
 verify, apply local policy, and unpack safely.
+
+The V0 security assumptions and HMAC limits are documented in
+[AGENT_CAPSULE_THREAT_MODEL.md](AGENT_CAPSULE_THREAT_MODEL.md).

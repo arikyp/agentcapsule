@@ -1,0 +1,4 @@
+Signed capsule example payload.
+
+The V0 HMAC mode proves that a party with the same shared secret produced the
+capsule text. It is not public identity and it is not encryption.

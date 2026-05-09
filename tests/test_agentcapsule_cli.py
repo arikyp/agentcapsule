@@ -218,9 +218,13 @@ class AgentCapsuleCliTests(unittest.TestCase):
             self.assertEqual(status, 0)
             self.assertEqual(stderr, "")
             payload = json.loads(stdout)
+            self.assertEqual(payload["report_type"], "agent_capsule_governance_scan")
+            self.assertEqual(payload["schema_version"], 1)
+            self.assertEqual(payload["disposition"], "allow")
             self.assertEqual(payload["capsules_detected"], 1)
             self.assertEqual(payload["valid_capsules"], 1)
             self.assertEqual(payload["risk_level"], "low")
+            self.assertTrue(payload["policy"]["require_known_codec"])
             self.assertEqual(payload["findings"], [])
 
     def test_scan_json_includes_findings(self) -> None:
@@ -233,8 +237,22 @@ class AgentCapsuleCliTests(unittest.TestCase):
             self.assertEqual(status, 0)
             self.assertEqual(stderr, "")
             payload = json.loads(stdout)
+            self.assertEqual(payload["disposition"], "review")
             self.assertEqual(payload["findings"][0]["type"], "dense_base64_like")
             self.assertEqual(payload["findings"][0]["line"], 2)
+
+    def test_scan_human_output_is_governance_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            text_file = Path(tmp) / "message.txt"
+            text_file.write_text("prefix\n" + ("A" * 120), encoding="utf-8")
+
+            status, stdout, stderr = _capture_cli(["scan", str(text_file)])
+
+            self.assertEqual(status, 0)
+            self.assertEqual(stderr, "")
+            self.assertIn("Agent Capsule Governance Report", stdout)
+            self.assertIn("disposition: review", stdout)
+            self.assertIn("finding: [MEDIUM] dense_base64_like", stdout)
 
     def test_codecs_json_output(self) -> None:
         status, stdout, stderr = _capture_cli(["codecs", "--json"])

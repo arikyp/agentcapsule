@@ -1,0 +1,4 @@
+Tampered capsule example payload.
+
+The demo signs this content, mutates the rendered capsule, and shows that
+verification fails.

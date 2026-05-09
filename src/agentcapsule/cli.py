@@ -11,7 +11,7 @@ from agentcapsule.backends import known_codecs, ngram_v2_headers_from_model_path
 from agentcapsule.envelope import build_envelope, parse_envelope, render_envelope, verify_envelope
 from agentcapsule.errors import CapsuleError
 from agentcapsule.manifest import pack_path, unpack_payload
-from agentcapsule.policy import DEFAULT_POLICY, CapsulePolicy, load_policy
+from agentcapsule.policy import DEFAULT_POLICY, CapsulePolicy, load_policy, policy_to_dict
 from agentcapsule.registry import list_codecs
 from agentcapsule.scanner import scan_text
 from agentcapsule.signing import SIGNATURE_NONE, SIGNATURE_HMAC_SHA256, key_from_env, sign_envelope, verify_signature
@@ -133,29 +133,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "scan":
             policy = _policy_from_args(args)
             result = scan_text(Path(args.text_file).read_text(encoding="utf-8"), policy=policy)
-            scan_payload = {
-                "capsules_detected": result.capsules_detected,
-                "valid_capsules": result.valid_capsules,
-                "invalid_capsules": result.invalid_capsules,
-                "risk_level": result.risk_level,
-                "reasons": result.reasons,
-                "findings": [finding.to_dict() for finding in result.findings],
-            }
+            scan_payload = _scan_report(result, policy)
             if args.json:
                 _print_json(scan_payload)
             else:
-                print(f"capsules detected: {result.capsules_detected}")
-                print(f"valid capsules: {result.valid_capsules}")
-                print(f"invalid capsules: {result.invalid_capsules}")
-                print(f"risk level: {result.risk_level}")
-                for reason in result.reasons:
-                    print(f"reason: {reason}")
-                for finding in result.findings:
-                    print(
-                        "finding: "
-                        f"{finding.risk} {finding.finding_type} "
-                        f"line {finding.line}, column {finding.column}: {finding.message}"
-                    )
+                _print_scan_report(scan_payload)
             return 0
         if args.command == "codecs":
             codecs = [_codec_to_dict(codec) for codec in list_codecs()]
@@ -183,6 +165,66 @@ def _policy_from_args(args: argparse.Namespace) -> CapsulePolicy:
     if policy_path:
         return load_policy(Path(policy_path))
     return DEFAULT_POLICY
+
+
+def _scan_report(result, policy: CapsulePolicy) -> dict[str, object]:
+    return {
+        "report_type": "agent_capsule_governance_scan",
+        "schema_version": 1,
+        "disposition": _scan_disposition(result.risk_level),
+        "capsules_detected": result.capsules_detected,
+        "valid_capsules": result.valid_capsules,
+        "invalid_capsules": result.invalid_capsules,
+        "risk_level": result.risk_level,
+        "reasons": result.reasons,
+        "policy": policy_to_dict(policy),
+        "findings": [finding.to_dict() for finding in result.findings],
+    }
+
+
+def _scan_disposition(risk_level: str) -> str:
+    if risk_level == "high":
+        return "block"
+    if risk_level == "medium":
+        return "review"
+    return "allow"
+
+
+def _print_scan_report(report: dict[str, object]) -> None:
+    print("Agent Capsule Governance Report")
+    print(f"report type: {report['report_type']}")
+    print(f"schema version: {report['schema_version']}")
+    print(f"risk level: {report['risk_level']}")
+    print(f"disposition: {report['disposition']}")
+    print(f"capsules detected: {report['capsules_detected']}")
+    print(f"valid capsules: {report['valid_capsules']}")
+    print(f"invalid capsules: {report['invalid_capsules']}")
+    policy = report["policy"]
+    if isinstance(policy, dict):
+        print(
+            "policy: "
+            f"known_codec={policy['require_known_codec']} "
+            f"hash_required={policy['require_hash']} "
+            f"allow_unsigned={policy['allow_unsigned']} "
+            f"max_payload_bytes={policy['max_payload_bytes']}"
+        )
+        required_modes = policy.get("required_signature_modes")
+        if required_modes:
+            print(f"policy signatures: {', '.join(str(mode) for mode in required_modes)}")
+    reasons = report["reasons"]
+    if isinstance(reasons, list):
+        for reason in reasons:
+            print(f"reason: {reason}")
+    findings = report["findings"]
+    if isinstance(findings, list):
+        for finding in findings:
+            if not isinstance(finding, dict):
+                continue
+            print(
+                "finding: "
+                f"[{str(finding['risk']).upper()}] {finding['type']} "
+                f"line {finding['line']}, column {finding['column']}: {finding['message']}"
+            )
 
 
 def _inspect_envelope(envelope, policy: CapsulePolicy, *, key_env: str | None = None) -> dict[str, object]:
