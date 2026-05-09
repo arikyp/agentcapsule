@@ -29,6 +29,12 @@ from agentcapsule.signing import (
     verify_signature,
     write_key_file,
 )
+from agentcapsule.trust import (
+    SignatureRegistry,
+    SignatureTrustResult,
+    load_signature_registry,
+    registry_entry_from_public_key_file,
+)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -54,6 +60,7 @@ def main(argv: list[str] | None = None) -> int:
     inspect_parser.add_argument("--policy", help="JSON policy file")
     inspect_parser.add_argument("--key-env", help="environment variable containing HMAC-SHA256 verification key")
     inspect_parser.add_argument("--ed25519-public-key", help="base64 raw Ed25519 public key file")
+    inspect_parser.add_argument("--signature-registry", help="local JSON signature trust registry")
     inspect_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
 
     verify_parser = subparsers.add_parser("verify", help="verify capsule payload hash")
@@ -61,6 +68,7 @@ def main(argv: list[str] | None = None) -> int:
     verify_parser.add_argument("--policy", help="JSON policy file")
     verify_parser.add_argument("--key-env", help="environment variable containing HMAC-SHA256 verification key")
     verify_parser.add_argument("--ed25519-public-key", help="base64 raw Ed25519 public key file")
+    verify_parser.add_argument("--signature-registry", help="local JSON signature trust registry")
     verify_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
 
     unpack_parser = subparsers.add_parser("unpack", help="verify and unpack a capsule")
@@ -69,10 +77,12 @@ def main(argv: list[str] | None = None) -> int:
     unpack_parser.add_argument("--policy", help="JSON policy file")
     unpack_parser.add_argument("--key-env", help="environment variable containing HMAC-SHA256 verification key")
     unpack_parser.add_argument("--ed25519-public-key", help="base64 raw Ed25519 public key file")
+    unpack_parser.add_argument("--signature-registry", help="local JSON signature trust registry")
 
     scan_parser = subparsers.add_parser("scan", help="scan a text file for capsules and dense payload risks")
     scan_parser.add_argument("text_file")
     scan_parser.add_argument("--policy", help="JSON policy file")
+    scan_parser.add_argument("--signature-registry", help="local JSON signature trust registry")
     scan_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
 
     codecs_parser = subparsers.add_parser("codecs", help="list registered capsule codecs")
@@ -86,6 +96,13 @@ def main(argv: list[str] | None = None) -> int:
     key_generate.add_argument("--force", action="store_true", help="overwrite existing key files")
     key_fingerprint = key_subparsers.add_parser("fingerprint", help="print an Ed25519 public key fingerprint")
     key_fingerprint.add_argument("--public-key", required=True, help="base64 raw Ed25519 public key file")
+    key_registry_entry = key_subparsers.add_parser("registry-entry", help="emit a local registry key entry")
+    key_registry_entry.add_argument("--key-id", required=True)
+    key_registry_entry.add_argument("--public-key", required=True, help="base64 raw Ed25519 public key file")
+    key_registry_entry.add_argument("--publisher")
+    key_registry_entry.add_argument("--status", choices=("trusted", "revoked"), default="trusted")
+    key_registry_entry.add_argument("--note")
+    key_registry_entry.add_argument("--json", action="store_true", help="emit raw JSON object")
 
     args = parser.parse_args(argv)
     try:
@@ -122,6 +139,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "inspect":
             policy = _policy_from_args(args)
+            signature_registry = _signature_registry_from_args(args)
             envelope = parse_envelope(Path(args.capsule).read_text(encoding="utf-8"))
             policy.check_metadata(envelope)
             inspection = _inspect_envelope(
@@ -129,6 +147,7 @@ def main(argv: list[str] | None = None) -> int:
                 policy,
                 key_env=args.key_env,
                 ed25519_public_key=args.ed25519_public_key,
+                signature_registry=signature_registry,
             )
             if args.json:
                 _print_json(inspection)
@@ -137,9 +156,11 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "verify":
             policy = _policy_from_args(args)
+            signature_registry = _signature_registry_from_args(args)
             envelope = parse_envelope(Path(args.capsule).read_text(encoding="utf-8"))
             policy.check_metadata(envelope)
-            _verify_signature_from_args(envelope, args)
+            trust = _verify_signature_from_args(envelope, args, signature_registry=signature_registry)
+            policy.check_signature_trust(trust.status if trust else None)
             payload = verify_envelope(envelope)
             policy.check_payload(payload)
             result = {
@@ -151,6 +172,7 @@ def main(argv: list[str] | None = None) -> int:
                 "payload_sha256": envelope.payload_sha256,
                 "codec": envelope.codec,
                 "content_type": envelope.content_type,
+                "signature_trust": trust.to_dict() if trust else None,
             }
             if args.json:
                 _print_json(result)
@@ -160,9 +182,11 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "unpack":
             policy = _policy_from_args(args)
+            signature_registry = _signature_registry_from_args(args)
             envelope = parse_envelope(Path(args.capsule).read_text(encoding="utf-8"))
             policy.check_metadata(envelope)
-            _verify_signature_from_args(envelope, args)
+            trust = _verify_signature_from_args(envelope, args, signature_registry=signature_registry)
+            policy.check_signature_trust(trust.status if trust else None)
             payload = verify_envelope(envelope)
             policy.check_payload(payload)
             written = unpack_payload(
@@ -178,7 +202,12 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "scan":
             policy = _policy_from_args(args)
-            result = scan_text(Path(args.text_file).read_text(encoding="utf-8"), policy=policy)
+            signature_registry = _signature_registry_from_args(args)
+            result = scan_text(
+                Path(args.text_file).read_text(encoding="utf-8"),
+                policy=policy,
+                signature_registry=signature_registry,
+            )
             scan_payload = _scan_report(result, policy)
             if args.json:
                 _print_json(scan_payload)
@@ -215,6 +244,19 @@ def main(argv: list[str] | None = None) -> int:
                 public_key = load_public_key_file(Path(args.public_key))
                 print(f"public key fingerprint: {public_key_fingerprint(public_key)}")
                 return 0
+            if args.key_command == "registry-entry":
+                entry = registry_entry_from_public_key_file(
+                    key_id=args.key_id,
+                    public_key_path=Path(args.public_key),
+                    publisher=args.publisher,
+                    status=args.status,
+                    note=args.note,
+                )
+                if args.json:
+                    _print_json(entry)
+                else:
+                    _print_json({"keys": [entry]})
+                return 0
     except CapsuleError as exc:
         print(str(exc), file=sys.stderr)
         return 2
@@ -231,6 +273,13 @@ def _policy_from_args(args: argparse.Namespace) -> CapsulePolicy:
     if policy_path:
         return load_policy(Path(policy_path))
     return DEFAULT_POLICY
+
+
+def _signature_registry_from_args(args: argparse.Namespace) -> SignatureRegistry | None:
+    registry_path = getattr(args, "signature_registry", None)
+    if registry_path:
+        return load_signature_registry(Path(registry_path))
+    return None
 
 
 def _scan_report(result, policy: CapsulePolicy) -> dict[str, object]:
@@ -299,6 +348,7 @@ def _inspect_envelope(
     *,
     key_env: str | None = None,
     ed25519_public_key: str | None = None,
+    signature_registry: SignatureRegistry | None = None,
 ) -> dict[str, object]:
     result: dict[str, object] = {
         "capsule_version": envelope.headers["capsule_version"],
@@ -311,6 +361,7 @@ def _inspect_envelope(
         "signature_public_key_fingerprint": envelope.headers.get("signature_public_key_fingerprint"),
         "signature_public_key_inline": "signature_public_key" in envelope.headers,
         "signature_verification": _signature_status(envelope),
+        "signature_trust": None,
         "payload_sha256": envelope.payload_sha256,
         "created_by": envelope.headers["created_by"],
         "created_at": envelope.headers["created_at"],
@@ -323,6 +374,8 @@ def _inspect_envelope(
             verify_signature(envelope, key=key_from_env(key_env))
             result["signature_verification"] = "ok"
         if envelope.headers.get("signature") == SIGNATURE_ED25519:
+            trust = _signature_trust(envelope, signature_registry)
+            result["signature_trust"] = trust.to_dict() if trust else None
             if ed25519_public_key:
                 verify_ed25519_signature(
                     envelope,
@@ -332,6 +385,10 @@ def _inspect_envelope(
             elif envelope.headers.get("signature_public_key"):
                 verify_ed25519_signature(envelope)
                 result["signature_verification"] = "ok"
+            elif trust and trust.public_key is not None:
+                verify_ed25519_signature(envelope, public_key_bytes=trust.public_key)
+                result["signature_verification"] = "ok"
+            policy.check_signature_trust(trust.status if trust else None)
         payload = verify_envelope(envelope)
         policy.check_payload(payload)
         result["verification_status"] = "ok"
@@ -355,6 +412,10 @@ def _print_inspection(inspection: dict[str, object]) -> None:
         print(f"signature public key fingerprint: {inspection['signature_public_key_fingerprint']}")
         print(f"signature public key inline: {inspection['signature_public_key_inline']}")
     print(f"signature verification: {inspection['signature_verification']}")
+    if inspection.get("signature_trust"):
+        trust = inspection["signature_trust"]
+        if isinstance(trust, dict):
+            print(f"signature trust: {trust['status']} ({trust['reason']})")
     print(f"payload sha256: {inspection['payload_sha256']}")
     metadata = inspection["codec_metadata"]
     if isinstance(metadata, dict):
@@ -396,24 +457,50 @@ def _risk_notes(envelope) -> list[str]:
     return notes
 
 
-def _verify_signature_from_args(envelope, args: argparse.Namespace) -> None:
+def _verify_signature_from_args(
+    envelope,
+    args: argparse.Namespace,
+    *,
+    signature_registry: SignatureRegistry | None = None,
+) -> SignatureTrustResult | None:
     mode = envelope.headers.get("signature", SIGNATURE_NONE)
     if mode == SIGNATURE_NONE:
-        return
+        return None
     if mode == SIGNATURE_HMAC_SHA256:
         key_env = getattr(args, "key_env", None)
         if not key_env:
             raise CapsuleError(f"{mode} signature requires --key-env")
         verify_signature(envelope, key=key_from_env(key_env))
-        return
+        return None
     if mode == SIGNATURE_ED25519:
+        trust = _signature_trust(envelope, signature_registry)
         public_key_path = getattr(args, "ed25519_public_key", None)
         if public_key_path:
             verify_ed25519_signature(envelope, public_key_bytes=load_public_key_file(Path(public_key_path)))
+        elif trust and trust.public_key is not None:
+            verify_ed25519_signature(envelope, public_key_bytes=trust.public_key)
         else:
             verify_ed25519_signature(envelope)
-        return
+        return trust
     raise CapsuleError(f"unsupported signature mode: {mode}")
+
+
+def _signature_trust(envelope, signature_registry: SignatureRegistry | None) -> SignatureTrustResult | None:
+    if envelope.headers.get("signature") != SIGNATURE_ED25519:
+        return None
+    if signature_registry is None:
+        if envelope.headers.get("signature_public_key"):
+            return SignatureTrustResult(
+                "untrusted",
+                "inline public key is not trusted by a registry",
+                envelope.headers.get("signature_key_id"),
+                envelope.headers.get("signature_public_key_fingerprint"),
+            )
+        return None
+    return signature_registry.resolve(
+        key_id=envelope.headers.get("signature_key_id"),
+        fingerprint=envelope.headers.get("signature_public_key_fingerprint"),
+    )
 
 
 def _signature_status(envelope) -> str:

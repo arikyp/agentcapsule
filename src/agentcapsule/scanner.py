@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 
 from agentcapsule.envelope import BEGIN_MARKER, END_MARKER, parse_envelope, verify_envelope
 from agentcapsule.policy import DEFAULT_POLICY, CapsulePolicy
+from agentcapsule.signing import SIGNATURE_ED25519
+from agentcapsule.trust import SignatureRegistry, SignatureTrustResult
 
 _BASE64_RE = re.compile(r"(?<![A-Za-z0-9+/=])(?:[A-Za-z0-9+/]{80,}={0,2})(?![A-Za-z0-9+/=])")
 _ZERO_WIDTH = {"\u200b", "\u200c", "\u200d", "\ufeff", "\u2060"}
@@ -47,7 +49,12 @@ class ScanResult:
     findings: list[ScanFinding] = field(default_factory=list)
 
 
-def scan_text(text: str, *, policy: CapsulePolicy = DEFAULT_POLICY) -> ScanResult:
+def scan_text(
+    text: str,
+    *,
+    policy: CapsulePolicy = DEFAULT_POLICY,
+    signature_registry: SignatureRegistry | None = None,
+) -> ScanResult:
     reasons: list[str] = []
     findings: list[ScanFinding] = []
     capsules_detected = text.count(BEGIN_MARKER)
@@ -70,6 +77,14 @@ def scan_text(text: str, *, policy: CapsulePolicy = DEFAULT_POLICY) -> ScanResul
         try:
             envelope = parse_envelope(block)
             policy.check_metadata(envelope)
+            if envelope.headers.get("signature") == SIGNATURE_ED25519:
+                trust = _signature_trust(envelope, signature_registry)
+                if trust and not trust.trusted:
+                    finding_type = "signature_revoked" if trust.status == "revoked" else "signature_untrusted"
+                    risk = "high" if trust.status == "revoked" else "medium"
+                    reasons.append(trust.reason)
+                    findings.append(_finding(text, finding_type, risk, trust.reason, begin, end))
+                policy.check_signature_trust(trust.status if trust else None)
             payload = verify_envelope(envelope)
             policy.check_payload(payload)
             valid += 1
@@ -115,6 +130,22 @@ def scan_text(text: str, *, policy: CapsulePolicy = DEFAULT_POLICY) -> ScanResul
     )
 
 
+def _signature_trust(envelope, signature_registry: SignatureRegistry | None) -> SignatureTrustResult | None:
+    if signature_registry is None:
+        if envelope.headers.get("signature_public_key"):
+            return SignatureTrustResult(
+                "untrusted",
+                "inline public key is not trusted by a registry",
+                envelope.headers.get("signature_key_id"),
+                envelope.headers.get("signature_public_key_fingerprint"),
+            )
+        return None
+    return signature_registry.resolve(
+        key_id=envelope.headers.get("signature_key_id"),
+        fingerprint=envelope.headers.get("signature_public_key_fingerprint"),
+    )
+
+
 def _very_long_dense_line_spans(text: str) -> list[tuple[int, int]]:
     spans = []
     offset = 0
@@ -128,9 +159,9 @@ def _very_long_dense_line_spans(text: str) -> list[tuple[int, int]]:
 
 
 def _risk_level(invalid: int, dense_blocks: list[re.Match[str]], reasons: list[str]) -> str:
-    if invalid or any("invisible" in reason for reason in reasons):
+    if invalid or any("invisible" in reason or "revoked" in reason for reason in reasons):
         return "high"
-    if dense_blocks or any("dense" in reason for reason in reasons):
+    if dense_blocks or any("dense" in reason or "untrusted" in reason for reason in reasons):
         return "medium"
     return "low"
 

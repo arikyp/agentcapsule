@@ -118,6 +118,7 @@ CAPSULE_HMAC_KEY='shared secret' capsule pack payload.bin --out capsule.txt --si
 capsule keys generate --private-key publisher.key --public-key publisher.pub
 capsule pack payload.bin --out capsule.txt --sign-ed25519-key publisher.key --signature-key-id publisher
 capsule verify capsule.txt --ed25519-public-key publisher.pub
+capsule verify capsule.txt --signature-registry trusted-keys.json
 ```
 
 `capsule scan --json` emits typed findings with source locations for governance

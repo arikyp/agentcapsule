@@ -40,6 +40,7 @@ class AgentCapsulePolicyTests(unittest.TestCase):
             "examples/agent_capsule_demo/policy-strict.json",
             "examples/agent_capsule_demo/policy-require-hmac.json",
             "examples/agent_capsule_demo/policy-require-ed25519.json",
+            "examples/agent_capsule_demo/policy-require-ed25519-registry.json",
             "examples/agent_capsule_demo/policy-small-bundle-only.json",
         ]
 
@@ -49,13 +50,17 @@ class AgentCapsulePolicyTests(unittest.TestCase):
         self.assertFalse(policies[2].allow_unsigned)
         self.assertEqual(policies[2].required_signature_modes, frozenset({"hmac-sha256"}))
         self.assertEqual(policies[3].required_signature_modes, frozenset({"ed25519"}))
-        self.assertEqual(policies[4].allowed_content_types, frozenset({"application/vnd.agent.bundle+json"}))
+        self.assertTrue(policies[4].require_signature_registry)
+        self.assertFalse(policies[4].allow_inline_public_keys)
+        self.assertEqual(policies[5].allowed_content_types, frozenset({"application/vnd.agent.bundle+json"}))
 
     def test_policy_to_dict_is_json_ready(self) -> None:
         policy = policy_from_mapping(
             {
                 "allow_unsigned": False,
                 "required_signature_modes": ["hmac-sha256"],
+                "trusted_signature_key_ids": ["key-1"],
+                "trusted_signature_key_fingerprints": ["A" * 64],
                 "allowed_content_types": ["application/octet-stream"],
             }
         )
@@ -64,6 +69,8 @@ class AgentCapsulePolicyTests(unittest.TestCase):
 
         self.assertEqual(payload["allow_unsigned"], False)
         self.assertEqual(payload["required_signature_modes"], ["hmac-sha256"])
+        self.assertEqual(payload["trusted_signature_key_ids"], ["key-1"])
+        self.assertEqual(payload["trusted_signature_key_fingerprints"], ["a" * 64])
         self.assertEqual(payload["allowed_content_types"], ["application/octet-stream"])
         json.dumps(payload)
 

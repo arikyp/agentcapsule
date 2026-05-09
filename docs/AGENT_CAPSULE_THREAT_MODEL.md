@@ -6,9 +6,10 @@ inspectable, policy-checkable, and byte-verifiable before a receiver unpacks
 them.
 
 V0 is not a complete trust system. It has SHA256 payload verification, optional
-HMAC-SHA256 shared-secret authenticity, local policy checks, and scanner
-heuristics. Public-key identity, encryption, registry trust, and SaaS
-governance integrations are future layers.
+HMAC-SHA256 shared-secret authenticity, optional Ed25519 public-key
+authenticity, local JSON trust registries, local policy checks, and scanner
+heuristics. Remote public-key identity, encryption, and SaaS governance
+integrations are future layers.
 
 ## Assets
 
@@ -59,7 +60,7 @@ intermediaries unless a future encryption layer is used.
 - HMAC-SHA256 can authenticate a capsule when sender and receiver already share
   a secret.
 - Ed25519 can verify that a capsule was signed by a public key; trust in that
-  key still comes from local policy or a future registry.
+  key comes from local policy and the local registry.
 - Directory bundles reject absolute paths and `..` traversal.
 - Scanner findings flag explicit capsules, invalid capsules, malformed
   capsule-like blocks, base64-like dense text, long dense lines, and invisible
@@ -175,15 +176,16 @@ agent traces, not a final enterprise enforcement engine.
 - An inline Ed25519 public key proves signature validity, not trust in the key.
 - A leaked Ed25519 private key lets an attacker produce valid signed capsules
   for that key until local policy or a future registry revokes it.
+- A stale local registry may continue trusting a key after an organization
+  considers it expired or compromised.
 - Dense-text heuristics can produce false positives and false negatives.
 - Inline n-gram model metadata is portable but bulky.
-- V0 has no revocation, identity registry, encryption, DLP, SIEM, or central
-  policy server.
+- V0 has local revocation only. It has no remote identity registry, encryption,
+  DLP, SIEM, or central policy server.
 
 ## Deferred Design Work
 
-The next design branch should specify Ed25519 public-key signing before any
-implementation work. That design needs dependency, license, key discovery,
-identity binding, rotation, revocation, and interoperability decisions.
-The current proposal is documented in
-[AGENT_CAPSULE_ED25519_DESIGN.md](AGENT_CAPSULE_ED25519_DESIGN.md).
+The current public-key signing and local registry design is documented in
+[AGENT_CAPSULE_ED25519_DESIGN.md](AGENT_CAPSULE_ED25519_DESIGN.md). Remote
+registry, identity binding, expiry windows, and transparency logs remain
+deferred.

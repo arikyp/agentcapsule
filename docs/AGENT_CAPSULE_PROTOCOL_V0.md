@@ -114,8 +114,11 @@ V0 proves the primitive, not the full security product.
 - SHA256 detects payload changes relative to the capsule header.
 - HMAC-SHA256 can authenticate a capsule when sender and receiver already share
   a secret key.
-- HMAC-SHA256 does not provide public identity, non-repudiation, key discovery,
-  or enterprise trust registry semantics.
+- HMAC-SHA256 does not provide public identity or non-repudiation.
+- Ed25519 can verify public-key signatures when `lmcodec[signing]` is
+  installed.
+- Local Ed25519 registries can mark keys as trusted or revoked. They are local
+  JSON files, not remote identity services.
 - Metadata is readable before decode.
 - Decode and unpack are separate from execution.
 - Unpack verifies first and writes only under the requested output directory.
@@ -123,13 +126,12 @@ V0 proves the primitive, not the full security product.
 
 Non-goals for V0:
 
-- Ed25519 signing.
 - Encryption or privacy.
 - Remote trust registry.
 - Central policy service.
 - DLP or SaaS integrations.
-- Runtime dependencies beyond the Python standard library and existing
-  LMCodec code.
+- Default runtime dependencies beyond the Python standard library and existing
+  LMCodec code. Ed25519 is available through the optional `signing` extra.
 
 ## Decode Flow
 
@@ -181,6 +183,10 @@ V0 supports a small local JSON policy for inspect, verify, unpack, and scan:
   "require_hash": true,
   "allow_unsigned": true,
   "required_signature_modes": [],
+  "require_signature_registry": false,
+  "allow_inline_public_keys": true,
+  "trusted_signature_key_ids": [],
+  "trusted_signature_key_fingerprints": [],
   "allowed_content_types": [
     "application/octet-stream",
     "application/vnd.agent.bundle+json"
@@ -192,6 +198,17 @@ V0 supports a small local JSON policy for inspect, verify, unpack, and scan:
 
 Policy files are intentionally strict about field names and types. Unknown
 fields are rejected rather than ignored.
+
+For strict public-key channels, require Ed25519 plus a local registry:
+
+```json
+{
+  "allow_unsigned": false,
+  "required_signature_modes": ["ed25519"],
+  "require_signature_registry": true,
+  "allow_inline_public_keys": false
+}
+```
 
 ## CLI Examples
 
@@ -263,6 +280,39 @@ capsule pack payload.bin --out capsule.txt \
   --signature-key-id publisher-prod-2026q2 \
   --no-inline-public-key
 capsule verify capsule.txt --ed25519-public-key publisher.pub
+```
+
+Create a local registry entry:
+
+```bash
+capsule keys registry-entry \
+  --key-id publisher-prod-2026q2 \
+  --public-key publisher.pub \
+  --publisher "Example Publisher"
+```
+
+Verify against a local registry:
+
+```bash
+capsule verify capsule.txt \
+  --policy examples/agent_capsule_demo/policy-require-ed25519-registry.json \
+  --signature-registry trusted-keys.json
+```
+
+The local registry format is:
+
+```json
+{
+  "keys": [
+    {
+      "key_id": "publisher-prod-2026q2",
+      "fingerprint": "<sha256>",
+      "public_key": "<base64 raw Ed25519 public key>",
+      "status": "trusted",
+      "publisher": "Example Publisher"
+    }
+  ]
+}
 ```
 
 For the full V0 security posture, see

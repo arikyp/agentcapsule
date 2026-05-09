@@ -11,7 +11,7 @@ class AgentCapsuleDesignDocsTests(unittest.TestCase):
         text = (ROOT / "docs" / "AGENT_CAPSULE_ED25519_DESIGN.md").read_text(encoding="utf-8")
 
         self.assertIn("This document specifies the Ed25519", text)
-        self.assertIn("The first implementation is intentionally narrow", text)
+        self.assertIn("The implementation is intentionally narrow", text)
         self.assertIn("signature: ed25519", text)
         self.assertIn("signature_public_key_fingerprint", text)
         self.assertIn("agentcapsule.signing.signed_bytes", text)

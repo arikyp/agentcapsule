@@ -19,6 +19,10 @@ class CapsulePolicy:
     require_hash: bool = True
     allow_unsigned: bool = True
     required_signature_modes: frozenset[str] = field(default_factory=frozenset)
+    require_signature_registry: bool = False
+    allow_inline_public_keys: bool = True
+    trusted_signature_key_ids: frozenset[str] = field(default_factory=frozenset)
+    trusted_signature_key_fingerprints: frozenset[str] = field(default_factory=frozenset)
     allowed_content_types: frozenset[str] = field(
         default_factory=lambda: frozenset({SINGLE_FILE_CONTENT_TYPE, BUNDLE_CONTENT_TYPE})
     )
@@ -34,8 +38,24 @@ class CapsulePolicy:
             raise CapsulePolicyError("unsigned capsules are not allowed")
         if self.required_signature_modes and envelope.headers.get("signature") not in self.required_signature_modes:
             raise CapsulePolicyError("signature mode is not allowed")
+        if not self.allow_inline_public_keys and envelope.headers.get("signature_public_key"):
+            raise CapsulePolicyError("inline public keys are not allowed")
+        if self.trusted_signature_key_ids:
+            key_id = envelope.headers.get("signature_key_id")
+            if key_id not in self.trusted_signature_key_ids:
+                raise CapsulePolicyError("signature key id is not trusted by policy")
+        if self.trusted_signature_key_fingerprints:
+            fingerprint = envelope.headers.get("signature_public_key_fingerprint")
+            if fingerprint not in self.trusted_signature_key_fingerprints:
+                raise CapsulePolicyError("signature key fingerprint is not trusted by policy")
         if envelope.content_type not in self.allowed_content_types:
             raise CapsulePolicyError(f"content type is not allowed: {envelope.content_type}")
+
+    def check_signature_trust(self, trust_status: str | None) -> None:
+        if self.require_signature_registry and trust_status == "revoked":
+            raise CapsulePolicyError("signature key is revoked by local registry")
+        if self.require_signature_registry and trust_status != "trusted":
+            raise CapsulePolicyError("signature key is not trusted by local registry")
 
     def check_payload(self, payload: bytes) -> None:
         if len(payload) > self.max_payload_bytes:
@@ -49,6 +69,10 @@ _POLICY_FIELDS = {
     "require_hash",
     "allow_unsigned",
     "required_signature_modes",
+    "require_signature_registry",
+    "allow_inline_public_keys",
+    "trusted_signature_key_ids",
+    "trusted_signature_key_fingerprints",
     "allowed_content_types",
     "max_payload_bytes",
     "decode_to_sandbox_required",
@@ -71,6 +95,10 @@ def policy_to_dict(policy: CapsulePolicy) -> dict[str, object]:
         "require_hash": policy.require_hash,
         "allow_unsigned": policy.allow_unsigned,
         "required_signature_modes": sorted(policy.required_signature_modes),
+        "require_signature_registry": policy.require_signature_registry,
+        "allow_inline_public_keys": policy.allow_inline_public_keys,
+        "trusted_signature_key_ids": sorted(policy.trusted_signature_key_ids),
+        "trusted_signature_key_fingerprints": sorted(policy.trusted_signature_key_fingerprints),
         "allowed_content_types": sorted(policy.allowed_content_types),
         "max_payload_bytes": policy.max_payload_bytes,
         "decode_to_sandbox_required": policy.decode_to_sandbox_required,
@@ -87,6 +115,8 @@ def policy_from_mapping(data: dict[str, Any]) -> CapsulePolicy:
         "require_known_codec",
         "require_hash",
         "allow_unsigned",
+        "require_signature_registry",
+        "allow_inline_public_keys",
         "decode_to_sandbox_required",
     ):
         if key in data:
@@ -106,6 +136,18 @@ def policy_from_mapping(data: dict[str, Any]) -> CapsulePolicy:
         if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
             raise CapsulePolicyError("policy field must be a list of strings: required_signature_modes")
         values["required_signature_modes"] = frozenset(value)
+
+    if "trusted_signature_key_ids" in data:
+        value = data["trusted_signature_key_ids"]
+        if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+            raise CapsulePolicyError("policy field must be a list of strings: trusted_signature_key_ids")
+        values["trusted_signature_key_ids"] = frozenset(value)
+
+    if "trusted_signature_key_fingerprints" in data:
+        value = data["trusted_signature_key_fingerprints"]
+        if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+            raise CapsulePolicyError("policy field must be a list of strings: trusted_signature_key_fingerprints")
+        values["trusted_signature_key_fingerprints"] = frozenset(item.lower() for item in value)
 
     if "max_payload_bytes" in data:
         value = data["max_payload_bytes"]

@@ -1,8 +1,9 @@
 # Agent Capsule Ed25519 Signing Design
 
 This document specifies the Ed25519 public-key signing layer for Agent Capsule
-Protocol. The first implementation is intentionally narrow: optional dependency,
-local key files, inline public key mode, and no remote registry.
+Protocol. The implementation is intentionally narrow: optional dependency,
+local key files, inline public key mode, and local JSON trust registry mode. It
+does not implement remote registry or organization identity services.
 
 ## Decision Summary
 
@@ -12,8 +13,8 @@ local key files, inline public key mode, and no remote registry.
 - Reuse the existing canonical signed bytes produced by
   `agentcapsule.signing.signed_bytes`.
 - Store signatures as header metadata, not inside the decoded payload.
-- Treat public-key identity, trust policy, rotation, and revocation as separate
-  registry concerns.
+- Treat public-key identity, trust policy, rotation, and revocation as local
+  registry concerns for now.
 - Implement Ed25519 as an optional capability first, then decide whether it
   belongs in the default install.
 
@@ -123,7 +124,7 @@ Inline key mode:
 Registry key mode:
 
 - capsule includes key ID and fingerprint,
-- verifier resolves the public key through a local or enterprise registry,
+- verifier resolves the public key through a local JSON registry,
 - policy decides whether the publisher, key, or fingerprint is allowed,
 - better for enterprise governance and audit.
 
@@ -132,7 +133,7 @@ Inline mode answers "did this key sign this capsule?" Registry mode answers
 
 ## Policy Extensions
 
-Future policy fields:
+Policy fields:
 
 ```json
 {
@@ -146,8 +147,11 @@ Future policy fields:
 ```
 
 V0 policy already supports `required_signature_modes`, so a future
-implementation can require `ed25519` without changing that field. The other
-fields should wait until a registry design exists.
+implementation can require `ed25519` without changing that field.
+`require_signature_registry`, `allow_inline_public_keys`,
+`trusted_signature_key_ids`, and `trusted_signature_key_fingerprints` are
+implemented for local policy enforcement. `max_signature_age_seconds` remains
+deferred.
 
 ## CLI Shape
 
@@ -160,6 +164,7 @@ capsule pack payload.bin --out capsule.txt \
   --signature-key-id publisher-prod-2026q2
 capsule verify capsule.txt --ed25519-public-key publisher.pub
 capsule verify capsule.txt --signature-registry trusted-keys.json
+capsule keys registry-entry --key-id publisher-prod-2026q2 --public-key publisher.pub
 ```
 
 Compatibility rules:
@@ -276,16 +281,18 @@ Implemented scope:
 - inline public key mode by default,
 - registry-shaped local public key verification with `--no-inline-public-key`
   and `--ed25519-public-key`,
+- local JSON trust registry verification with `--signature-registry`,
+- trusted/revoked key status,
 - strict tests for tampering, wrong public keys, and signature policy.
 
 Still deferred:
 
 - remote registry,
-- revocation and rotation policy,
+- time-bound validity windows,
 - encrypted private keys,
-- public-key trust store,
+- organization identity binding,
 - default-install crypto dependency.
 
 ## Recommended Next Branch
 
-`codex/agent-capsule-ed25519-local-registry`
+`codex/agent-capsule-policy-audit-log-v0`
