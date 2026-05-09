@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 from agentcapsule.backends import get_backend, ngram_v2_headers_from_model_path
-from agentcapsule.errors import CapsuleUnpackError
+from agentcapsule.errors import CapsuleError, CapsuleUnpackError
 from agentcapsule.manifest import pack_directory, unpack_bundle
 
 
@@ -30,6 +30,16 @@ class AgentCapsuleBackendTests(unittest.TestCase):
         self.assertEqual(backend.decode(encoded, headers=headers), payload)
         self.assertEqual(headers["lmcodec_model_type"], "ngram-v1")
         self.assertEqual(headers["lmcodec_model_encoding"], "inline-base64-json")
+
+    def test_lmcodec_ngram_v2_rejects_corrupted_inline_model_metadata(self) -> None:
+        payload = b"ngram backend payload"
+        backend = get_backend("lmcodec-ngram-v2")
+        headers = ngram_v2_headers_from_model_path("tests/fixtures/ngram_model_v1.json")
+        encoded = backend.encode(payload, headers=headers)
+        headers["lmcodec_model_json_b64"] = "A" + headers["lmcodec_model_json_b64"][1:]
+
+        with self.assertRaisesRegex(CapsuleError, "SHA256 mismatch"):
+            backend.decode(encoded, headers=headers)
 
     def test_directory_bundle_deterministic_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

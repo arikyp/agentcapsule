@@ -66,6 +66,21 @@ class AgentCapsuleCliTests(unittest.TestCase):
 
             self.assertEqual((out / "payload.bin").read_bytes(), b"ngram-v2")
 
+    def test_lmcodec_ngram_v2_pack_requires_model(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "payload.bin"
+            capsule = root / "capsule.txt"
+            source.write_bytes(b"ngram-v2")
+
+            status, stdout, stderr = _capture_cli(
+                ["pack", str(source), "--out", str(capsule), "--codec", "lmcodec-ngram-v2"]
+            )
+
+            self.assertNotEqual(status, 0)
+            self.assertEqual(stdout, "")
+            self.assertIn("requires --model", stderr)
+
     def test_cli_returns_nonzero_on_invalid_capsule(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             capsule = Path(tmp) / "bad.txt"

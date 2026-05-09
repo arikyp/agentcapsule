@@ -44,7 +44,8 @@ headers, missing boundaries, and hash mismatches are rejected.
 ## Metadata Fields
 
 - `capsule_version`: protocol version, currently `0.1`.
-- `codec`: payload text codec, currently `base64` or `lmcodec-fixed`.
+- `codec`: payload text codec, currently `base64`, `lmcodec-fixed`, or
+  `lmcodec-ngram-v2`.
 - `content_type`: decoded payload type.
 - `payload_sha256`: SHA256 of the decoded payload bytes.
 - `compression`: reserved, currently `none`.
@@ -57,7 +58,7 @@ headers, missing boundaries, and hash mismatches are rejected.
 
 ## Backend Model
 
-V0 includes two dependency-free backends:
+V0 includes three dependency-free backends:
 
 - `base64`: stable interoperability baseline.
 - `lmcodec-fixed`: LMCodec default fixed carrier wrapped as a capsule payload
@@ -74,6 +75,18 @@ capsule codecs
 
 Future backends can register n-gram, quality-shaped, registry-driven, or
 Transformer carriers without changing the envelope model.
+
+## Model Metadata Modes
+
+`lmcodec-ngram-v2` currently uses inline model mode. The capsule embeds the
+canonical n-gram model JSON in plaintext metadata as base64 and verifies it with
+both SHA256 and the LMCodec model fingerprint. This is portable,
+self-contained, and useful for demos, offline handoff, and exact reproduction.
+
+Future registry model mode should replace bulky inline model metadata with a
+compact model reference such as a registry ID, model fingerprint, and trust
+domain. Registry mode will be more enterprise-friendly, but it requires a
+trusted model registry and policy rules for which model references are allowed.
 
 ## Payload Formats
 
