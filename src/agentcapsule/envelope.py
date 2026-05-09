@@ -32,6 +32,13 @@ HEADER_ORDER = (
     "capsule_version",
     "codec",
     "content_type",
+    "lmcodec_backend_version",
+    "lmcodec_model_type",
+    "lmcodec_model_fingerprint",
+    "lmcodec_model_sha256",
+    "lmcodec_model_encoding",
+    "lmcodec_ngram_order",
+    "lmcodec_ngram_uniform_mix",
     "payload_sha256",
     "compression",
     "encryption",
@@ -61,7 +68,7 @@ class CapsuleEnvelope:
         return self.headers["payload_sha256"]
 
     def decode_payload(self) -> bytes:
-        return get_backend(self.codec).decode(self.payload_text)
+        return get_backend(self.codec).decode(self.payload_text, headers=self.headers)
 
 
 def utc_timestamp() -> str:
@@ -77,6 +84,7 @@ def build_envelope(
     created_by: str = "local",
     created_at: str | None = None,
     policy: str = "inspect-before-use",
+    extra_headers: dict[str, str] | None = None,
 ) -> CapsuleEnvelope:
     headers = {
         "capsule_version": CAPSULE_VERSION,
@@ -90,9 +98,11 @@ def build_envelope(
         "created_at": created_at or utc_timestamp(),
         "policy": policy,
     }
+    if extra_headers:
+        headers.update(extra_headers)
     if filename:
         headers["filename"] = filename
-    payload_text = get_backend(codec).encode(payload)
+    payload_text = get_backend(codec).encode(payload, headers=headers)
     return CapsuleEnvelope(headers=headers, payload_text=payload_text)
 
 

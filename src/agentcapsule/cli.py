@@ -7,6 +7,7 @@ import json
 import sys
 from pathlib import Path
 
+from agentcapsule.backends import known_codecs, ngram_v2_headers_from_model_path
 from agentcapsule.envelope import build_envelope, parse_envelope, render_envelope, verify_envelope
 from agentcapsule.errors import CapsuleError
 from agentcapsule.manifest import pack_path, unpack_payload
@@ -22,7 +23,8 @@ def main(argv: list[str] | None = None) -> int:
     pack_parser = subparsers.add_parser("pack", help="pack a file or directory into an Agent Capsule")
     pack_parser.add_argument("path")
     pack_parser.add_argument("--out", required=True)
-    pack_parser.add_argument("--codec", choices=("base64", "lmcodec-fixed"), default="base64")
+    pack_parser.add_argument("--codec", choices=known_codecs(), default="base64")
+    pack_parser.add_argument("--model", help="LMCodec model JSON for model-backed capsule codecs")
 
     inspect_parser = subparsers.add_parser("inspect", help="inspect capsule metadata")
     inspect_parser.add_argument("capsule")
@@ -51,7 +53,13 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "pack":
             payload, content_type, filename = pack_path(Path(args.path))
-            envelope = build_envelope(payload, codec=args.codec, content_type=content_type, filename=filename)
+            envelope = build_envelope(
+                payload,
+                codec=args.codec,
+                content_type=content_type,
+                filename=filename,
+                extra_headers=_backend_headers_from_args(args),
+            )
             Path(args.out).write_text(render_envelope(envelope), encoding="utf-8", newline="\n")
             print(f"capsule path: {args.out}")
             print(f"codec: {args.codec}")
@@ -172,6 +180,7 @@ def _inspect_envelope(envelope, policy: CapsulePolicy) -> dict[str, object]:
         "created_by": envelope.headers["created_by"],
         "created_at": envelope.headers["created_at"],
         "payload_character_length": len(envelope.payload_text),
+        "codec_metadata": {key: value for key, value in envelope.headers.items() if key.startswith("lmcodec_")},
         "risk_notes": _risk_notes(envelope),
     }
     try:
@@ -193,6 +202,14 @@ def _print_inspection(inspection: dict[str, object]) -> None:
     print(f"encryption: {inspection['encryption']}")
     print(f"signature mode: {inspection['signature_mode']}")
     print(f"payload sha256: {inspection['payload_sha256']}")
+    metadata = inspection["codec_metadata"]
+    if isinstance(metadata, dict):
+        for key in sorted(metadata):
+            value = str(metadata[key])
+            if key.endswith("_json_b64"):
+                print(f"{key}: <{len(value)} chars>")
+            else:
+                print(f"{key}: {value}")
     print(f"created_by: {inspection['created_by']}")
     print(f"created_at: {inspection['created_at']}")
     print(f"payload character length: {inspection['payload_character_length']}")
@@ -217,6 +234,16 @@ def _risk_notes(envelope) -> list[str]:
     if envelope.codec != "base64":
         notes.append("non-base64 codec requires matching decoder support")
     return notes
+
+
+def _backend_headers_from_args(args: argparse.Namespace) -> dict[str, str]:
+    if args.codec == "lmcodec-ngram-v2":
+        if not args.model:
+            raise CapsuleError("lmcodec-ngram-v2 requires --model")
+        return ngram_v2_headers_from_model_path(args.model)
+    if args.model:
+        raise CapsuleError(f"--model is not supported for codec: {args.codec}")
+    return {}
 
 
 def _codec_to_dict(codec) -> dict[str, object]:

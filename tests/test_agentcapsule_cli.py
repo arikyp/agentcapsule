@@ -38,6 +38,34 @@ class AgentCapsuleCliTests(unittest.TestCase):
 
             self.assertEqual((out / "payload.bin").read_bytes(), b"abc123")
 
+    def test_lmcodec_ngram_v2_pack_verify_unpack_roundtrip(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "payload.bin"
+            capsule = root / "capsule.txt"
+            out = root / "decoded"
+            source.write_bytes(b"ngram-v2")
+
+            self.assertEqual(
+                _run_cli(
+                    [
+                        "pack",
+                        str(source),
+                        "--out",
+                        str(capsule),
+                        "--codec",
+                        "lmcodec-ngram-v2",
+                        "--model",
+                        "tests/fixtures/ngram_model_v1.json",
+                    ]
+                ),
+                0,
+            )
+            self.assertEqual(_run_cli(["verify", str(capsule)]), 0)
+            self.assertEqual(_run_cli(["unpack", str(capsule), "--out", str(out)]), 0)
+
+            self.assertEqual((out / "payload.bin").read_bytes(), b"ngram-v2")
+
     def test_cli_returns_nonzero_on_invalid_capsule(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             capsule = Path(tmp) / "bad.txt"
@@ -120,7 +148,41 @@ class AgentCapsuleCliTests(unittest.TestCase):
         self.assertEqual(status, 0)
         self.assertEqual(stderr, "")
         payload = json.loads(stdout)
-        self.assertEqual([codec["name"] for codec in payload["codecs"]], ["base64", "lmcodec-fixed"])
+        self.assertEqual(
+            [codec["name"] for codec in payload["codecs"]],
+            ["base64", "lmcodec-fixed", "lmcodec-ngram-v2"],
+        )
+
+    def test_ngram_v2_inspect_json_includes_codec_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "payload.bin"
+            capsule = root / "capsule.txt"
+            source.write_bytes(b"ngram-v2")
+            self.assertEqual(
+                _run_cli(
+                    [
+                        "pack",
+                        str(source),
+                        "--out",
+                        str(capsule),
+                        "--codec",
+                        "lmcodec-ngram-v2",
+                        "--model",
+                        "tests/fixtures/ngram_model_v1.json",
+                    ]
+                ),
+                0,
+            )
+
+            status, stdout, stderr = _capture_cli(["inspect", str(capsule), "--json"])
+
+            self.assertEqual(status, 0)
+            self.assertEqual(stderr, "")
+            payload = json.loads(stdout)
+            self.assertEqual(payload["codec"], "lmcodec-ngram-v2")
+            self.assertEqual(payload["codec_metadata"]["lmcodec_model_type"], "ngram-v1")
+            self.assertEqual(payload["codec_metadata"]["lmcodec_model_encoding"], "inline-base64-json")
 
 
 def _run_cli(argv: list[str]) -> int:

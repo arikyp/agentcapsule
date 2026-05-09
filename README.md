@@ -113,6 +113,7 @@ capsule unpack capsule.txt --out decoded
 capsule scan capsule.txt
 capsule codecs
 capsule inspect capsule.txt --json
+capsule pack payload.bin --codec lmcodec-ngram-v2 --model tests/fixtures/ngram_model_v1.json --out capsule.txt
 ```
 
 `capsule scan --json` emits typed findings with source locations for governance
