@@ -45,3 +45,9 @@ jobs:
 
       - name: Compile-check source, scripts, and tests
         run: python3 -m compileall src scripts tests
+
+      - name: Run Agent Capsule demo
+        run: PYTHON=python3 sh scripts/demo_agent_capsule.sh
+
+      - name: Run release check
+        run: sh scripts/release_check.sh
