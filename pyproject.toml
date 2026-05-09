@@ -24,6 +24,7 @@ classifiers = [
 
 [project.scripts]
 lmcodec = "lmcodec.cli:main"
+capsule = "agentcapsule.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/arikyp/lmcodec"
