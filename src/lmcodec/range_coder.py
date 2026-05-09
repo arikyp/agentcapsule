@@ -40,10 +40,18 @@ class RangeEncoder:
     def bits(self) -> tuple[int, ...]:
         return tuple(self._bits)
 
-    def push_symbol(self, cdf: Sequence[int], symbol: int) -> None:
+    @property
+    def bit_count(self) -> int:
+        return len(self._bits)
+
+    def bits_prefix(self, count: int) -> tuple[int, ...]:
+        return tuple(self._bits[:count])
+
+    def push_symbol(self, cdf: Sequence[int], symbol: int, *, validate: bool = True) -> None:
         if self._finished:
             raise ValueError("cannot push symbols after finish")
-        _validate_cdf(cdf)
+        if validate:
+            _validate_cdf(cdf)
         if symbol < 0 or symbol >= len(cdf) - 1:
             raise ValueError("symbol out of range")
 
@@ -91,6 +99,41 @@ class RangeEncoder:
         clone._finished = self._finished
         return clone.finish()
 
+    def emitted_prefix_matches(self, target: Sequence[int]) -> bool:
+        """Return whether emitted bits can still match target's prefix."""
+
+        return self.emitted_prefix_matches_from(target, 0)
+
+    def emitted_prefix_matches_from(self, target: Sequence[int], start: int) -> bool:
+        """Return whether emitted bits from start still match target."""
+
+        checked = min(len(self._bits), len(target))
+        for idx in range(start, checked):
+            if self._bits[idx] != target[idx]:
+                return False
+        return True
+
+    def preview_finish_extends_prefix(self, target: Sequence[int]) -> bool:
+        """Return whether finishing now would extend a known-valid prefix."""
+
+        if self._finished:
+            return len(self._bits) >= len(target)
+
+        pending = self._pending_bits + 1
+        first_bit = 0 if self.low < FIRST_QTR else 1
+        finished_len = len(self._bits) + 1 + pending
+        if finished_len < len(target):
+            return False
+        for idx in range(len(self._bits), len(target)):
+            expected = target[idx]
+            if idx == len(self._bits):
+                bit = first_bit
+            else:
+                bit = 1 - first_bit
+            if bit != expected:
+                return False
+        return True
+
     def _emit_bit_plus_pending(self, bit: int) -> None:
         self._bits.append(bit)
         inverse = 1 - bit
@@ -110,8 +153,9 @@ class RangeDecoder:
         for _ in range(CODE_VALUE_BITS):
             self.code = (self.code << 1) | self._reader.read()
 
-    def pop_symbol(self, cdf: Sequence[int]) -> int:
-        _validate_cdf(cdf)
+    def pop_symbol(self, cdf: Sequence[int], *, validate: bool = True) -> int:
+        if validate:
+            _validate_cdf(cdf)
         total = cdf[-1]
         width = self.high - self.low + 1
         scaled_value = ((self.code - self.low + 1) * total - 1) // width

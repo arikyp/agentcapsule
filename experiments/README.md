@@ -8,6 +8,7 @@ Example configs live in `experiments/configs/`:
 - `example_fixed.json`
 - `example_ngram.json`
 - `example_transformer.json`
+- `v2_*.json`
 
 Run an experiment from the repository root:
 
@@ -24,3 +25,27 @@ Each run writes an output directory containing:
 
 Generated run directories are reproducible artifacts, but they can grow over
 time. Keep only the runs that are useful for comparison.
+
+Compare completed runs:
+
+```bash
+scripts/compare_results.py experiments/runs/*/result.json
+```
+
+Run the V2 checkpoint matrix:
+
+```bash
+scripts/run_matrix.py experiments/matrices/v2_checkpoint.json
+```
+
+Run the larger real-ish corpus stress matrix:
+
+```bash
+scripts/run_matrix.py experiments/matrices/v2_large_payload_realish.json
+```
+
+Run the scaled payload-size ladder:
+
+```bash
+scripts/run_matrix.py experiments/matrices/v2_size_ladder.json --resume --timeout-seconds 180
+```

@@ -249,6 +249,38 @@ Pinned Transformer fixture metrics for `bytes(range(256))` with
 - [docs/QUICKSTART.md](docs/QUICKSTART.md): installed CLI usage.
 - [docs/BENCHMARKING.md](docs/BENCHMARKING.md): structured benchmark JSON.
 - [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md): bounded V2 experiment runner.
+- [docs/V2_BASELINE.md](docs/V2_BASELINE.md): V2 baseline metrics and first
+  candidate runs.
+- [docs/V2_EXPERIMENT_PROTOCOL.md](docs/V2_EXPERIMENT_PROTOCOL.md): V2
+  promotion gates and experiment rules.
+- [docs/V2_AUTOAGENT.md](docs/V2_AUTOAGENT.md): autoagent role and guardrails
+  for bounded V2 research.
+- [docs/V2_CANDIDATE_REPORT_TEMPLATE.md](docs/V2_CANDIDATE_REPORT_TEMPLATE.md):
+  report shape for reviewed V2 candidates.
+- [docs/V2_CHECKPOINT.md](docs/V2_CHECKPOINT.md): V2 research checkpoint,
+  matrix ranking, and merge recommendation.
+- [docs/V2_LARGE_PAYLOAD_REAL_CORPUS_STRESS.md](docs/V2_LARGE_PAYLOAD_REAL_CORPUS_STRESS.md):
+  next stress lane for larger payloads and real-ish corpora.
+- [docs/V2_LARGE_PAYLOAD_STRESS_RESULTS.md](docs/V2_LARGE_PAYLOAD_STRESS_RESULTS.md):
+  capped large-payload stress results and runtime finding.
+- [docs/V2_SIZE_LADDER.md](docs/V2_SIZE_LADDER.md): scaled payload ladder for
+  locating the current runtime knee.
+- [docs/V2_SIZE_LADDER_RESULTS.md](docs/V2_SIZE_LADDER_RESULTS.md): observed
+  32KB/64KB runtime boundary.
+- [docs/V2_SPRINT_1.md](docs/V2_SPRINT_1.md): first V2 candidate stress
+  sprint.
+- [docs/V2_SPRINT_2.md](docs/V2_SPRINT_2.md): first autoagent-safe
+  comparison sprint.
+- [docs/V2_SPRINT_3.md](docs/V2_SPRINT_3.md): order-3 candidate stress
+  sprint.
+- [docs/V2_CANDIDATE_ORDER3.md](docs/V2_CANDIDATE_ORDER3.md): current order-3
+  candidate report.
+- [docs/V2_CANDIDATE_ORDER3_SHAPED.md](docs/V2_CANDIDATE_ORDER3_SHAPED.md):
+  shaped order-3 candidate report.
+- [docs/V2_CANDIDATE_ORDER2_SAFETY.md](docs/V2_CANDIDATE_ORDER2_SAFETY.md):
+  order-2 safety fallback report.
+- [docs/V2_CANDIDATE_TRANSFORMER_FIXTURE.md](docs/V2_CANDIDATE_TRANSFORMER_FIXTURE.md):
+  Transformer fixture candidate report.
 - [docs/CARRIER_QUALITY.md](docs/CARRIER_QUALITY.md): carrier quality metrics
   and trade-offs.
 - [docs/TESTING.md](docs/TESTING.md): stress/property test strategy.

@@ -1,0 +1,167 @@
+{
+  "matrix_name": "v2-1mb-real-corpus-ceiling",
+  "output_dir": "experiments/runs/v2_1mb_real_corpus_ceiling_matrix",
+  "wrap": 80,
+  "max_steps": 12000000,
+  "run_golden_tests": false,
+  "payloads": [
+    {
+      "name": "binary_1mb",
+      "kind": "range",
+      "start": 109,
+      "count": 1048576
+    },
+    {
+      "name": "text_1mb",
+      "kind": "text_repeat",
+      "bytes": 1048576,
+      "token": "one megabyte deterministic lmcodec payload for ceiling validation across real corpora\n"
+    }
+  ],
+  "corpora": [
+    {
+      "name": "all_repo_text",
+      "kind": "files",
+      "domain": "all_repo_text",
+      "paths": [
+        "README.md",
+        "CHANGELOG.md",
+        "pyproject.toml",
+        "docs/ALGORITHM.md",
+        "docs/BENCHMARKING.md",
+        "docs/CARRIER_QUALITY.md",
+        "docs/EXPERIMENTS.md",
+        "docs/IMPLEMENTATION_PLAN.md",
+        "docs/LIMITATIONS.md",
+        "docs/NEXT_ROUND_BASELINE.md",
+        "docs/QUICKSTART.md",
+        "docs/TESTING.md",
+        "docs/V1_RELEASE.md",
+        "docs/V2_AUTOAGENT.md",
+        "docs/V2_BASELINE.md",
+        "docs/V2_CHECKPOINT.md",
+        "docs/V2_EXPERIMENT_PROTOCOL.md",
+        "docs/V2_LARGE_PAYLOAD_STRESS_RESULTS.md",
+        "docs/V2_REAL_CORPUS_PAYLOAD_LADDER_RESULTS.md",
+        "docs/V2_RUNTIME_HOTPATH_CHECKPOINT.md",
+        "docs/V2_SIZE_LADDER_RESULTS.md",
+        "src/lmcodec/armour.py",
+        "src/lmcodec/benchmarking.py",
+        "src/lmcodec/codec.py",
+        "src/lmcodec/experiments.py",
+        "src/lmcodec/framing.py",
+        "src/lmcodec/lm.py",
+        "src/lmcodec/probability.py",
+        "src/lmcodec/quantizer.py",
+        "src/lmcodec/range_coder.py",
+        "src/lmcodec/transformer.py",
+        "scripts/build_carrier_corpus.py",
+        "scripts/compare_results.py",
+        "scripts/profile_experiment.py",
+        "scripts/run_experiment.py",
+        "scripts/run_matrix.py",
+        "scripts/sweep_shaping.py"
+      ],
+      "heldout_ratio": 0.2,
+      "split_seed": 505,
+      "max_chars": 260000
+    },
+    {
+      "name": "all_tests_protocol",
+      "kind": "files",
+      "domain": "all_tests_protocol",
+      "paths": [
+        "docs/TESTING.md",
+        "docs/V1_RELEASE.md",
+        "docs/V2_EXPERIMENT_PROTOCOL.md",
+        "docs/V2_MERGE_STRATEGY.md",
+        "tests/test_benchmark_json.py",
+        "tests/test_benchmark_schema.py",
+        "tests/test_build_carrier_corpus.py",
+        "tests/test_carrier_quality.py",
+        "tests/test_codec.py",
+        "tests/test_compare_results.py",
+        "tests/test_experiments.py",
+        "tests/test_framing_armour.py",
+        "tests/test_golden.py",
+        "tests/test_lm.py",
+        "tests/test_probability.py",
+        "tests/test_profile_experiment.py",
+        "tests/test_property_roundtrip.py",
+        "tests/test_quantizer.py",
+        "tests/test_quantizer_stress.py",
+        "tests/test_range_coder.py",
+        "tests/test_range_coder_stress.py",
+        "tests/test_run_experiment.py",
+        "tests/test_run_matrix.py",
+        "tests/test_split_corpus.py",
+        "tests/test_sweep_shaping.py"
+      ],
+      "heldout_ratio": 0.2,
+      "split_seed": 606,
+      "max_chars": 260000
+    }
+  ],
+  "candidates": [
+    {
+      "name": "order3_quality",
+      "model": {
+        "type": "ngram",
+        "training": {
+          "order": 3,
+          "alpha": 1.0,
+          "uniform_mix": 0.75
+        }
+      },
+      "shape_settings": {
+        "uniform_mix": 0.0,
+        "temperature": 1.0,
+        "min_probability": 0.0,
+        "min_entropy_bits": 0.0
+      },
+      "promotion_gate": {
+        "min_entropy_bits": 5.4
+      }
+    },
+    {
+      "name": "order3_balanced_shape",
+      "model": {
+        "type": "ngram",
+        "training": {
+          "order": 3,
+          "alpha": 1.0,
+          "uniform_mix": 0.75
+        }
+      },
+      "shape_settings": {
+        "uniform_mix": 0.1,
+        "temperature": 1.15,
+        "min_probability": 0.0,
+        "min_entropy_bits": 0.0
+      },
+      "promotion_gate": {
+        "min_entropy_bits": 5.6
+      }
+    },
+    {
+      "name": "order2_safety_mix",
+      "model": {
+        "type": "ngram",
+        "training": {
+          "order": 2,
+          "alpha": 1.0,
+          "uniform_mix": 0.85
+        }
+      },
+      "shape_settings": {
+        "uniform_mix": 0.0,
+        "temperature": 1.0,
+        "min_probability": 0.0,
+        "min_entropy_bits": 0.0
+      },
+      "promotion_gate": {
+        "min_entropy_bits": 5.6
+      }
+    }
+  ]
+}

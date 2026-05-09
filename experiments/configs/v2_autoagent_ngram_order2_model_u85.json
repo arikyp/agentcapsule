@@ -1,0 +1,27 @@
+{
+  "experiment_name": "v2-autoagent-ngram-order2-model-u85",
+  "payload_path": "pyproject.toml",
+  "model": {
+    "type": "ngram",
+    "training": {
+      "corpus_path": "examples/carrier_train_v2.txt",
+      "order": 2,
+      "alpha": 1.0,
+      "uniform_mix": 0.85
+    }
+  },
+  "shape_settings": {
+    "uniform_mix": 0.0,
+    "temperature": 1.0,
+    "min_probability": 0.0,
+    "min_entropy_bits": 0.0
+  },
+  "max_steps": 100000,
+  "run_golden_tests": true,
+  "wrap": 80,
+  "quality_text_path": "examples/carrier_heldout_v2.txt",
+  "promotion_gate": {
+    "min_entropy_bits": 5.6
+  },
+  "output_dir": "experiments/runs/v2_autoagent_ngram_order2_model_u85"
+}

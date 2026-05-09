@@ -1,0 +1,149 @@
+{
+  "matrix_name": "v2-real-corpus-payload-ladder",
+  "output_dir": "experiments/runs/v2_real_corpus_payload_ladder_matrix",
+  "wrap": 80,
+  "max_steps": 5000000,
+  "run_golden_tests": false,
+  "payloads": [
+    {
+      "name": "binary_256kb",
+      "kind": "range",
+      "start": 47,
+      "count": 262144
+    },
+    {
+      "name": "binary_512kb",
+      "kind": "range",
+      "start": 83,
+      "count": 524288
+    },
+    {
+      "name": "text_256kb",
+      "kind": "text_repeat",
+      "bytes": 262144,
+      "token": "larger lmcodec payload ladder line with deterministic plain text content\n"
+    },
+    {
+      "name": "text_512kb",
+      "kind": "text_repeat",
+      "bytes": 524288,
+      "token": "half megabyte deterministic text payload for real corpus stress validation\n"
+    }
+  ],
+  "corpora": [
+    {
+      "name": "repo_code_docs",
+      "kind": "files",
+      "domain": "repo_code_docs",
+      "paths": [
+        "README.md",
+        "CHANGELOG.md",
+        "pyproject.toml",
+        "docs/ALGORITHM.md",
+        "docs/BENCHMARKING.md",
+        "docs/CARRIER_QUALITY.md",
+        "docs/EXPERIMENTS.md",
+        "docs/LIMITATIONS.md",
+        "docs/V2_CHECKPOINT.md",
+        "docs/V2_LARGE_PAYLOAD_STRESS_RESULTS.md",
+        "docs/V2_RUNTIME_HOTPATH_CHECKPOINT.md",
+        "src/lmcodec/codec.py",
+        "src/lmcodec/range_coder.py",
+        "src/lmcodec/probability.py",
+        "src/lmcodec/quantizer.py",
+        "src/lmcodec/lm.py",
+        "scripts/run_experiment.py",
+        "scripts/run_matrix.py"
+      ],
+      "heldout_ratio": 0.2,
+      "split_seed": 303,
+      "max_chars": 180000
+    },
+    {
+      "name": "tests_and_protocol",
+      "kind": "files",
+      "domain": "tests_and_protocol",
+      "paths": [
+        "docs/TESTING.md",
+        "docs/V1_RELEASE.md",
+        "docs/V2_EXPERIMENT_PROTOCOL.md",
+        "docs/V2_SIZE_LADDER_RESULTS.md",
+        "tests/test_codec.py",
+        "tests/test_golden.py",
+        "tests/test_property_roundtrip.py",
+        "tests/test_range_coder.py",
+        "tests/test_range_coder_stress.py",
+        "tests/test_run_experiment.py",
+        "tests/test_run_matrix.py",
+        "tests/test_probability.py",
+        "tests/test_quantizer.py",
+        "tests/test_quantizer_stress.py"
+      ],
+      "heldout_ratio": 0.2,
+      "split_seed": 404,
+      "max_chars": 180000
+    }
+  ],
+  "candidates": [
+    {
+      "name": "order3_quality",
+      "model": {
+        "type": "ngram",
+        "training": {
+          "order": 3,
+          "alpha": 1.0,
+          "uniform_mix": 0.75
+        }
+      },
+      "shape_settings": {
+        "uniform_mix": 0.0,
+        "temperature": 1.0,
+        "min_probability": 0.0,
+        "min_entropy_bits": 0.0
+      },
+      "promotion_gate": {
+        "min_entropy_bits": 5.4
+      }
+    },
+    {
+      "name": "order3_balanced_shape",
+      "model": {
+        "type": "ngram",
+        "training": {
+          "order": 3,
+          "alpha": 1.0,
+          "uniform_mix": 0.75
+        }
+      },
+      "shape_settings": {
+        "uniform_mix": 0.1,
+        "temperature": 1.15,
+        "min_probability": 0.0,
+        "min_entropy_bits": 0.0
+      },
+      "promotion_gate": {
+        "min_entropy_bits": 5.6
+      }
+    },
+    {
+      "name": "order2_safety_mix",
+      "model": {
+        "type": "ngram",
+        "training": {
+          "order": 2,
+          "alpha": 1.0,
+          "uniform_mix": 0.85
+        }
+      },
+      "shape_settings": {
+        "uniform_mix": 0.0,
+        "temperature": 1.0,
+        "min_probability": 0.0,
+        "min_entropy_bits": 0.0
+      },
+      "promotion_gate": {
+        "min_entropy_bits": 5.6
+      }
+    }
+  ]
+}
