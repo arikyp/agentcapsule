@@ -1,15 +1,14 @@
 # Agent Capsule Ed25519 Signing Design
 
-This document specifies the proposed Ed25519 public-key signing layer for Agent
-Capsule Protocol. It is a design document only.
-
-It does not add runtime dependencies or implement Ed25519 signing.
+This document specifies the Ed25519 public-key signing layer for Agent Capsule
+Protocol. The first implementation is intentionally narrow: optional dependency,
+local key files, inline public key mode, and no remote registry.
 
 ## Decision Summary
 
-- Add a future signature mode named `ed25519`.
-- Keep `dependencies = []` until an implementation branch explicitly chooses a
-  vetted crypto dependency.
+- Add a signature mode named `ed25519`.
+- Keep core `dependencies = []`; expose crypto support through the optional
+  `signing` extra.
 - Reuse the existing canonical signed bytes produced by
   `agentcapsule.signing.signed_bytes`.
 - Store signatures as header metadata, not inside the decoded payload.
@@ -265,9 +264,28 @@ Implementation branch tests should cover:
 - Should optional signing extras live in this package or in a separate
   `agentcapsule-signing` package?
 
+## Current Prototype Scope
+
+Implemented scope:
+
+- optional `lmcodec[signing]` dependency,
+- local base64 raw Ed25519 private/public key files,
+- `capsule keys generate`,
+- `capsule keys fingerprint`,
+- `capsule pack --sign-ed25519-key`,
+- inline public key mode by default,
+- registry-shaped local public key verification with `--no-inline-public-key`
+  and `--ed25519-public-key`,
+- strict tests for tampering, wrong public keys, and signature policy.
+
+Still deferred:
+
+- remote registry,
+- revocation and rotation policy,
+- encrypted private keys,
+- public-key trust store,
+- default-install crypto dependency.
+
 ## Recommended Next Branch
 
-`codex/agent-capsule-ed25519-signing-prototype`
-
-Prototype scope should be narrow: optional dependency, local key files, inline
-public key mode, strict tests, no remote registry.
+`codex/agent-capsule-ed25519-local-registry`

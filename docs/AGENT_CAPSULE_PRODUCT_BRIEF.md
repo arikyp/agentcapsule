@@ -51,8 +51,7 @@ Near-term protocol layers:
 - JSON policy loading,
 - smaller model reference modes for n-gram capsules when a local trust registry
   exists,
-- public-key signed capsules with Ed25519 after the HMAC-SHA256 V0 shared-secret
-  mode stabilizes; the design is tracked in
+- public-key signed capsules with the optional Ed25519 prototype; the design is tracked in
   [AGENT_CAPSULE_ED25519_DESIGN.md](AGENT_CAPSULE_ED25519_DESIGN.md),
 - encrypted capsules with AES-GCM or age-style recipients,
 - explicit trust registry and publisher identity,

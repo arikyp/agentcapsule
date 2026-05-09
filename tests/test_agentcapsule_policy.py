@@ -39,6 +39,7 @@ class AgentCapsulePolicyTests(unittest.TestCase):
             "examples/agent_capsule_demo/policy-observe.json",
             "examples/agent_capsule_demo/policy-strict.json",
             "examples/agent_capsule_demo/policy-require-hmac.json",
+            "examples/agent_capsule_demo/policy-require-ed25519.json",
             "examples/agent_capsule_demo/policy-small-bundle-only.json",
         ]
 
@@ -47,7 +48,8 @@ class AgentCapsulePolicyTests(unittest.TestCase):
         self.assertTrue(policies[0].allow_unsigned)
         self.assertFalse(policies[2].allow_unsigned)
         self.assertEqual(policies[2].required_signature_modes, frozenset({"hmac-sha256"}))
-        self.assertEqual(policies[3].allowed_content_types, frozenset({"application/vnd.agent.bundle+json"}))
+        self.assertEqual(policies[3].required_signature_modes, frozenset({"ed25519"}))
+        self.assertEqual(policies[4].allowed_content_types, frozenset({"application/vnd.agent.bundle+json"}))
 
     def test_policy_to_dict_is_json_ready(self) -> None:
         policy = policy_from_mapping(

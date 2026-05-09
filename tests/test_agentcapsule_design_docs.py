@@ -10,12 +10,13 @@ class AgentCapsuleDesignDocsTests(unittest.TestCase):
     def test_ed25519_design_doc_exists_and_defers_implementation(self) -> None:
         text = (ROOT / "docs" / "AGENT_CAPSULE_ED25519_DESIGN.md").read_text(encoding="utf-8")
 
-        self.assertIn("This document specifies the proposed Ed25519", text)
-        self.assertIn("It does not add runtime dependencies or implement Ed25519 signing.", text)
+        self.assertIn("This document specifies the Ed25519", text)
+        self.assertIn("The first implementation is intentionally narrow", text)
         self.assertIn("signature: ed25519", text)
         self.assertIn("signature_public_key_fingerprint", text)
         self.assertIn("agentcapsule.signing.signed_bytes", text)
         self.assertIn("Keep core `lmcodec` dependency-free", text)
+        self.assertIn("Current Prototype Scope", text)
 
     def test_agent_capsule_docs_link_ed25519_design(self) -> None:
         for path in (
@@ -31,6 +32,7 @@ class AgentCapsuleDesignDocsTests(unittest.TestCase):
         data = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
 
         self.assertEqual(data["project"]["dependencies"], [])
+        self.assertEqual(data["project"]["optional-dependencies"]["signing"], ["cryptography>=46,<47"])
 
 
 if __name__ == "__main__":

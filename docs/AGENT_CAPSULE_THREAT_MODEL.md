@@ -14,7 +14,7 @@ governance integrations are future layers.
 
 - Exact payload bytes carried inside the capsule.
 - Plaintext metadata used for routing, inspection, and policy decisions.
-- Local HMAC verification keys.
+- Local HMAC verification keys and Ed25519 public/private key files.
 - Decoded output directory and any downstream tools that may consume it.
 - Audit events emitted by `capsule inspect`, `capsule verify`, and
   `capsule scan --json`.
@@ -41,7 +41,9 @@ V0 assumes an attacker may:
 - attempt bundle path traversal,
 - send oversized payloads,
 - send unsigned capsules to a channel that expects signed capsules,
-- use a valid HMAC key if the shared secret is compromised.
+- use a valid HMAC key if the shared secret is compromised,
+- sign with an Ed25519 key that is valid cryptographically but not trusted for
+  the channel.
 
 V0 does not assume the text channel preserves confidentiality. Capsule payload
 text and metadata should be treated as readable by channel participants and
@@ -53,9 +55,11 @@ intermediaries unless a future encryption layer is used.
 - Required headers are rejected when missing.
 - Payload bytes are decoded and checked against `payload_sha256`.
 - Local policy can require known codecs, hashes, content types, payload size
-  limits, sandbox unpacking, and HMAC signature mode.
+  limits, sandbox unpacking, HMAC signature mode, and Ed25519 signature mode.
 - HMAC-SHA256 can authenticate a capsule when sender and receiver already share
   a secret.
+- Ed25519 can verify that a capsule was signed by a public key; trust in that
+  key still comes from local policy or a future registry.
 - Directory bundles reject absolute paths and `..` traversal.
 - Scanner findings flag explicit capsules, invalid capsules, malformed
   capsule-like blocks, base64-like dense text, long dense lines, and invisible
@@ -157,16 +161,20 @@ agent traces, not a final enterprise enforcement engine.
 2. Parse capsule metadata.
 3. Apply local policy.
 4. Verify HMAC if the policy or channel requires it.
-5. Decode and recompute SHA256.
-6. Unpack only into a sandbox directory.
-7. Inspect decoded files before use.
-8. Never execute decoded content as part of capsule verification.
+5. Verify Ed25519 if the policy or channel requires public-key signatures.
+6. Decode and recompute SHA256.
+7. Unpack only into a sandbox directory.
+8. Inspect decoded files before use.
+9. Never execute decoded content as part of capsule verification.
 
 ## Residual Risks
 
 - A receiver may apply an observe policy to a channel that should require
   signing.
 - A leaked HMAC key lets an attacker produce valid signed capsules.
+- An inline Ed25519 public key proves signature validity, not trust in the key.
+- A leaked Ed25519 private key lets an attacker produce valid signed capsules
+  for that key until local policy or a future registry revokes it.
 - Dense-text heuristics can produce false positives and false negatives.
 - Inline n-gram model metadata is portable but bulky.
 - V0 has no revocation, identity registry, encryption, DLP, SIEM, or central
