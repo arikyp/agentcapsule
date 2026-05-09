@@ -158,6 +158,11 @@ JSON scan output also includes typed findings. Each finding carries:
 - `start` and `end`: character offsets in the scanned text.
 - `excerpt`: capped evidence string for logs.
 
+The scan report also includes `report_type`,
+`schema_version`, `disposition`, and the effective policy. Disposition is a
+simple local mapping: `low` risk allows, `medium` risk requires review, and
+`high` risk blocks.
+
 ## Local Policy JSON
 
 V0 supports a small local JSON policy for inspect, verify, unpack, and scan:
@@ -193,6 +198,7 @@ capsule verify capsule.txt --policy examples/agent_capsule_demo/policy-strict.js
 capsule inspect capsule.txt --json
 capsule scan capsule.txt --json
 capsule codecs --json
+sh scripts/demo_agent_capsule_governance.sh
 ```
 
 The `--json` forms are intended for agent traces, CI checks, and governance
@@ -227,6 +233,9 @@ CAPSULE_HMAC_KEY='shared secret' \
 
 The HMAC covers all capsule headers except `signature_value` plus the encoded
 payload text. Changing metadata or payload text invalidates the signature.
+
+For the full V0 security posture, see
+[AGENT_CAPSULE_THREAT_MODEL.md](AGENT_CAPSULE_THREAT_MODEL.md).
 
 ## Example Capsule
 

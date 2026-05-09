@@ -65,6 +65,18 @@ def load_policy(path: Path) -> CapsulePolicy:
     return policy_from_mapping(data)
 
 
+def policy_to_dict(policy: CapsulePolicy) -> dict[str, object]:
+    return {
+        "require_known_codec": policy.require_known_codec,
+        "require_hash": policy.require_hash,
+        "allow_unsigned": policy.allow_unsigned,
+        "required_signature_modes": sorted(policy.required_signature_modes),
+        "allowed_content_types": sorted(policy.allowed_content_types),
+        "max_payload_bytes": policy.max_payload_bytes,
+        "decode_to_sandbox_required": policy.decode_to_sandbox_required,
+    }
+
+
 def policy_from_mapping(data: dict[str, Any]) -> CapsulePolicy:
     unknown = sorted(set(data) - _POLICY_FIELDS)
     if unknown:

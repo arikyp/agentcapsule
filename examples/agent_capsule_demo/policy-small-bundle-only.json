@@ -1,0 +1,13 @@
+{
+  "require_known_codec": true,
+  "require_hash": true,
+  "allow_unsigned": false,
+  "required_signature_modes": [
+    "hmac-sha256"
+  ],
+  "allowed_content_types": [
+    "application/vnd.agent.bundle+json"
+  ],
+  "max_payload_bytes": 262144,
+  "decode_to_sandbox_required": true
+}

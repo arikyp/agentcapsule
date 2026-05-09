@@ -122,6 +122,8 @@ logs and agent traces.
 
 See [docs/AGENT_CAPSULE_PROTOCOL_V0.md](docs/AGENT_CAPSULE_PROTOCOL_V0.md) and
 [docs/AGENT_CAPSULE_PRODUCT_BRIEF.md](docs/AGENT_CAPSULE_PRODUCT_BRIEF.md).
+For security assumptions, HMAC limits, and governance policy examples, see
+[docs/AGENT_CAPSULE_THREAT_MODEL.md](docs/AGENT_CAPSULE_THREAT_MODEL.md).
 
 ## Architecture
 

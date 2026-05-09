@@ -1,0 +1,4 @@
+Unsigned capsule example payload.
+
+This is acceptable for observe-only channels, but strict receivers should treat
+it as unauthenticated until a real signature policy is satisfied.
