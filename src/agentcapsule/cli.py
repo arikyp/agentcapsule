@@ -14,7 +14,21 @@ from agentcapsule.manifest import pack_path, unpack_payload
 from agentcapsule.policy import DEFAULT_POLICY, CapsulePolicy, load_policy, policy_to_dict
 from agentcapsule.registry import list_codecs
 from agentcapsule.scanner import scan_text
-from agentcapsule.signing import SIGNATURE_NONE, SIGNATURE_HMAC_SHA256, key_from_env, sign_envelope, verify_signature
+from agentcapsule.signing import (
+    SIGNATURE_ED25519,
+    SIGNATURE_HMAC_SHA256,
+    SIGNATURE_NONE,
+    generate_ed25519_keypair,
+    key_from_env,
+    load_private_key_file,
+    load_public_key_file,
+    public_key_fingerprint,
+    sign_envelope,
+    sign_envelope_ed25519,
+    verify_ed25519_signature,
+    verify_signature,
+    write_key_file,
+)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -27,18 +41,26 @@ def main(argv: list[str] | None = None) -> int:
     pack_parser.add_argument("--codec", choices=known_codecs(), default="base64")
     pack_parser.add_argument("--model", help="LMCodec model JSON for model-backed capsule codecs")
     pack_parser.add_argument("--sign-key-env", help="environment variable containing HMAC-SHA256 signing key")
-    pack_parser.add_argument("--signature-key-id", help="optional HMAC key identifier written to capsule metadata")
+    pack_parser.add_argument("--sign-ed25519-key", help="base64 raw Ed25519 private key file")
+    pack_parser.add_argument(
+        "--no-inline-public-key",
+        action="store_true",
+        help="omit inline Ed25519 public key metadata from signed capsules",
+    )
+    pack_parser.add_argument("--signature-key-id", help="optional signature key identifier written to capsule metadata")
 
     inspect_parser = subparsers.add_parser("inspect", help="inspect capsule metadata")
     inspect_parser.add_argument("capsule")
     inspect_parser.add_argument("--policy", help="JSON policy file")
     inspect_parser.add_argument("--key-env", help="environment variable containing HMAC-SHA256 verification key")
+    inspect_parser.add_argument("--ed25519-public-key", help="base64 raw Ed25519 public key file")
     inspect_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
 
     verify_parser = subparsers.add_parser("verify", help="verify capsule payload hash")
     verify_parser.add_argument("capsule")
     verify_parser.add_argument("--policy", help="JSON policy file")
     verify_parser.add_argument("--key-env", help="environment variable containing HMAC-SHA256 verification key")
+    verify_parser.add_argument("--ed25519-public-key", help="base64 raw Ed25519 public key file")
     verify_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
 
     unpack_parser = subparsers.add_parser("unpack", help="verify and unpack a capsule")
@@ -46,6 +68,7 @@ def main(argv: list[str] | None = None) -> int:
     unpack_parser.add_argument("--out", required=True)
     unpack_parser.add_argument("--policy", help="JSON policy file")
     unpack_parser.add_argument("--key-env", help="environment variable containing HMAC-SHA256 verification key")
+    unpack_parser.add_argument("--ed25519-public-key", help="base64 raw Ed25519 public key file")
 
     scan_parser = subparsers.add_parser("scan", help="scan a text file for capsules and dense payload risks")
     scan_parser.add_argument("text_file")
@@ -55,9 +78,20 @@ def main(argv: list[str] | None = None) -> int:
     codecs_parser = subparsers.add_parser("codecs", help="list registered capsule codecs")
     codecs_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
 
+    keys_parser = subparsers.add_parser("keys", help="manage local Agent Capsule signing keys")
+    key_subparsers = keys_parser.add_subparsers(dest="key_command", required=True)
+    key_generate = key_subparsers.add_parser("generate", help="generate a raw Ed25519 key pair")
+    key_generate.add_argument("--private-key", required=True, help="output path for base64 raw private key")
+    key_generate.add_argument("--public-key", required=True, help="output path for base64 raw public key")
+    key_generate.add_argument("--force", action="store_true", help="overwrite existing key files")
+    key_fingerprint = key_subparsers.add_parser("fingerprint", help="print an Ed25519 public key fingerprint")
+    key_fingerprint.add_argument("--public-key", required=True, help="base64 raw Ed25519 public key file")
+
     args = parser.parse_args(argv)
     try:
         if args.command == "pack":
+            if args.sign_key_env and args.sign_ed25519_key:
+                raise CapsuleError("choose only one signature mode")
             payload, content_type, filename = pack_path(Path(args.path))
             envelope = build_envelope(
                 payload,
@@ -72,6 +106,13 @@ def main(argv: list[str] | None = None) -> int:
                     key=key_from_env(args.sign_key_env),
                     key_id=args.signature_key_id,
                 )
+            if args.sign_ed25519_key:
+                envelope = sign_envelope_ed25519(
+                    envelope,
+                    private_key_bytes=load_private_key_file(Path(args.sign_ed25519_key)),
+                    key_id=args.signature_key_id,
+                    inline_public_key=not args.no_inline_public_key,
+                )
             Path(args.out).write_text(render_envelope(envelope), encoding="utf-8", newline="\n")
             print(f"capsule path: {args.out}")
             print(f"codec: {args.codec}")
@@ -83,7 +124,12 @@ def main(argv: list[str] | None = None) -> int:
             policy = _policy_from_args(args)
             envelope = parse_envelope(Path(args.capsule).read_text(encoding="utf-8"))
             policy.check_metadata(envelope)
-            inspection = _inspect_envelope(envelope, policy, key_env=args.key_env)
+            inspection = _inspect_envelope(
+                envelope,
+                policy,
+                key_env=args.key_env,
+                ed25519_public_key=args.ed25519_public_key,
+            )
             if args.json:
                 _print_json(inspection)
             else:
@@ -149,6 +195,26 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"  external model: {'yes' if codec.requires_external_model else 'no'}")
                     print(f"  notes: {codec.notes}")
             return 0
+        if args.command == "keys":
+            if args.key_command == "generate":
+                private_path = Path(args.private_key)
+                public_path = Path(args.public_key)
+                if not args.force:
+                    for path in (private_path, public_path):
+                        if path.exists():
+                            raise CapsuleError(f"key file already exists: {path}")
+                private_key, public_key = generate_ed25519_keypair()
+                write_key_file(private_path, private_key)
+                private_path.chmod(0o600)
+                write_key_file(public_path, public_key)
+                print(f"private key: {private_path}")
+                print(f"public key: {public_path}")
+                print(f"public key fingerprint: {public_key_fingerprint(public_key)}")
+                return 0
+            if args.key_command == "fingerprint":
+                public_key = load_public_key_file(Path(args.public_key))
+                print(f"public key fingerprint: {public_key_fingerprint(public_key)}")
+                return 0
     except CapsuleError as exc:
         print(str(exc), file=sys.stderr)
         return 2
@@ -227,7 +293,13 @@ def _print_scan_report(report: dict[str, object]) -> None:
             )
 
 
-def _inspect_envelope(envelope, policy: CapsulePolicy, *, key_env: str | None = None) -> dict[str, object]:
+def _inspect_envelope(
+    envelope,
+    policy: CapsulePolicy,
+    *,
+    key_env: str | None = None,
+    ed25519_public_key: str | None = None,
+) -> dict[str, object]:
     result: dict[str, object] = {
         "capsule_version": envelope.headers["capsule_version"],
         "codec": envelope.codec,
@@ -236,6 +308,8 @@ def _inspect_envelope(envelope, policy: CapsulePolicy, *, key_env: str | None = 
         "encryption": envelope.headers["encryption"],
         "signature_mode": envelope.headers["signature"],
         "signature_key_id": envelope.headers.get("signature_key_id"),
+        "signature_public_key_fingerprint": envelope.headers.get("signature_public_key_fingerprint"),
+        "signature_public_key_inline": "signature_public_key" in envelope.headers,
         "signature_verification": _signature_status(envelope),
         "payload_sha256": envelope.payload_sha256,
         "created_by": envelope.headers["created_by"],
@@ -245,9 +319,19 @@ def _inspect_envelope(envelope, policy: CapsulePolicy, *, key_env: str | None = 
         "risk_notes": _risk_notes(envelope),
     }
     try:
-        if key_env:
+        if envelope.headers.get("signature") == SIGNATURE_HMAC_SHA256 and key_env:
             verify_signature(envelope, key=key_from_env(key_env))
             result["signature_verification"] = "ok"
+        if envelope.headers.get("signature") == SIGNATURE_ED25519:
+            if ed25519_public_key:
+                verify_ed25519_signature(
+                    envelope,
+                    public_key_bytes=load_public_key_file(Path(ed25519_public_key)),
+                )
+                result["signature_verification"] = "ok"
+            elif envelope.headers.get("signature_public_key"):
+                verify_ed25519_signature(envelope)
+                result["signature_verification"] = "ok"
         payload = verify_envelope(envelope)
         policy.check_payload(payload)
         result["verification_status"] = "ok"
@@ -267,6 +351,9 @@ def _print_inspection(inspection: dict[str, object]) -> None:
     print(f"signature mode: {inspection['signature_mode']}")
     if inspection.get("signature_key_id"):
         print(f"signature key id: {inspection['signature_key_id']}")
+    if inspection.get("signature_public_key_fingerprint"):
+        print(f"signature public key fingerprint: {inspection['signature_public_key_fingerprint']}")
+        print(f"signature public key inline: {inspection['signature_public_key_inline']}")
     print(f"signature verification: {inspection['signature_verification']}")
     print(f"payload sha256: {inspection['payload_sha256']}")
     metadata = inspection["codec_metadata"]
@@ -298,6 +385,10 @@ def _risk_notes(envelope) -> list[str]:
         notes.append("unsigned capsule; SHA256 only proves integrity against the header")
     if envelope.headers.get("signature") == SIGNATURE_HMAC_SHA256:
         notes.append("HMAC signature proves shared-secret authenticity, not public identity")
+    if envelope.headers.get("signature") == SIGNATURE_ED25519:
+        notes.append("Ed25519 signature proves public-key authenticity only if the key is trusted")
+        if envelope.headers.get("signature_public_key"):
+            notes.append("inline public key verifies the signature but does not establish trust")
     if envelope.headers.get("encryption") == "none":
         notes.append("payload is not encrypted")
     if envelope.codec != "base64":
@@ -309,10 +400,20 @@ def _verify_signature_from_args(envelope, args: argparse.Namespace) -> None:
     mode = envelope.headers.get("signature", SIGNATURE_NONE)
     if mode == SIGNATURE_NONE:
         return
-    key_env = getattr(args, "key_env", None)
-    if not key_env:
-        raise CapsuleError(f"{mode} signature requires --key-env")
-    verify_signature(envelope, key=key_from_env(key_env))
+    if mode == SIGNATURE_HMAC_SHA256:
+        key_env = getattr(args, "key_env", None)
+        if not key_env:
+            raise CapsuleError(f"{mode} signature requires --key-env")
+        verify_signature(envelope, key=key_from_env(key_env))
+        return
+    if mode == SIGNATURE_ED25519:
+        public_key_path = getattr(args, "ed25519_public_key", None)
+        if public_key_path:
+            verify_ed25519_signature(envelope, public_key_bytes=load_public_key_file(Path(public_key_path)))
+        else:
+            verify_ed25519_signature(envelope)
+        return
+    raise CapsuleError(f"unsupported signature mode: {mode}")
 
 
 def _signature_status(envelope) -> str:

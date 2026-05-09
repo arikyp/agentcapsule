@@ -4,9 +4,10 @@ Agent Capsule Protocol V0 defines a signed-style, inspectable, verifiable text
 artifact for moving exact machine-readable payloads through text-native
 channels: chat, tickets, prompts, email, GitHub issues, and agent traces.
 
-The V0 implementation uses SHA256 integrity verification and supports optional
-HMAC-SHA256 signatures for shared-secret authenticity. It reserves explicit
-metadata fields for future public-key signing and encryption.
+The V0 implementation uses SHA256 integrity verification, supports optional
+HMAC-SHA256 signatures for shared-secret authenticity, and has an optional
+Ed25519 prototype for public-key authenticity. It reserves explicit metadata
+fields for future encryption.
 
 ## Problem Statement
 
@@ -50,9 +51,16 @@ headers, missing boundaries, and hash mismatches are rejected.
 - `payload_sha256`: SHA256 of the decoded payload bytes.
 - `compression`: reserved, currently `none`.
 - `encryption`: reserved, currently `none`.
-- `signature`: `none` or `hmac-sha256`.
-- `signature_key_id`: optional shared-secret key identifier.
-- `signature_value`: HMAC-SHA256 signature when `signature` is `hmac-sha256`.
+- `signature`: `none`, `hmac-sha256`, or `ed25519`.
+- `signature_key_id`: optional key identifier.
+- `signature_public_key_fingerprint`: SHA256 fingerprint of raw Ed25519 public
+  key bytes.
+- `signature_public_key_encoding`: currently `base64` when an inline Ed25519
+  public key is present.
+- `signature_public_key`: optional inline base64 raw Ed25519 public key.
+- `signature_value_encoding`: currently `base64` for Ed25519 signatures.
+- `signature_value`: HMAC-SHA256 hex digest when `signature` is `hmac-sha256`,
+  or base64 Ed25519 signature when `signature` is `ed25519`.
 - `created_by`: local producer identifier.
 - `created_at`: UTC ISO timestamp.
 - `policy`: policy hint, currently `inspect-before-use`.
@@ -233,6 +241,29 @@ CAPSULE_HMAC_KEY='shared secret' \
 
 The HMAC covers all capsule headers except `signature_value` plus the encoded
 payload text. Changing metadata or payload text invalidates the signature.
+
+Create and verify an Ed25519-signed capsule:
+
+```bash
+capsule keys generate --private-key publisher.key --public-key publisher.pub
+capsule pack payload.bin --out capsule.txt \
+  --sign-ed25519-key publisher.key \
+  --signature-key-id publisher-prod-2026q2
+capsule verify capsule.txt --policy examples/agent_capsule_demo/policy-require-ed25519.json
+```
+
+By default, the Ed25519 prototype embeds the raw public key as base64 metadata
+so a receiver can verify without a registry. Inline keys prove that the capsule
+was signed by that key; they do not prove the key is trusted. To model registry
+mode, omit inline key metadata and provide a local public key file:
+
+```bash
+capsule pack payload.bin --out capsule.txt \
+  --sign-ed25519-key publisher.key \
+  --signature-key-id publisher-prod-2026q2 \
+  --no-inline-public-key
+capsule verify capsule.txt --ed25519-public-key publisher.pub
+```
 
 For the full V0 security posture, see
 [AGENT_CAPSULE_THREAT_MODEL.md](AGENT_CAPSULE_THREAT_MODEL.md).
