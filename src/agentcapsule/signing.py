@@ -128,6 +128,10 @@ def encode_key_bytes(key_bytes: bytes) -> str:
     return base64.b64encode(key_bytes).decode("ascii")
 
 
+def decode_key_bytes(value: str, *, expected_len: int, label: str) -> bytes:
+    return _decode_base64_bytes(value, expected_len=expected_len, label=label)
+
+
 def inline_public_key_bytes(envelope: CapsuleEnvelope) -> bytes:
     encoding = envelope.headers.get(SIGNATURE_PUBLIC_KEY_ENCODING_HEADER)
     if encoding != SIGNATURE_ENCODING_BASE64:
@@ -135,7 +139,7 @@ def inline_public_key_bytes(envelope: CapsuleEnvelope) -> bytes:
     value = envelope.headers.get(SIGNATURE_PUBLIC_KEY_HEADER)
     if not value:
         raise CapsuleVerificationError("missing inline Ed25519 public key")
-    return _decode_base64_bytes(value, expected_len=32, label="Ed25519 public key")
+    return decode_key_bytes(value, expected_len=32, label="Ed25519 public key")
 
 
 def public_key_fingerprint(public_key_bytes: bytes) -> str:

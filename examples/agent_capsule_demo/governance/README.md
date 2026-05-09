@@ -15,3 +15,7 @@ sh scripts/demo_agent_capsule_governance.sh
 
 The script writes temporary capsules, scans them with observe and strict
 policies, and verifies that the tampered capsule is rejected.
+
+`registry-example.json` shows the local Ed25519 trust registry shape with
+trusted, rotated, and revoked key entries. It uses placeholder fingerprints;
+generate real entries with `capsule keys registry-entry`.

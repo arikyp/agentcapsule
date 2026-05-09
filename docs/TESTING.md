@@ -32,6 +32,8 @@ The Agent Capsule demo exercises pack, inspect, verify, unpack, scan JSON,
 codec registry output, `lmcodec-ngram-v2`, and HMAC signing.
 `scripts/demo_agent_capsule_ed25519.sh` additionally exercises the optional
 `lmcodec[signing]` Ed25519 prototype when `cryptography` is installed.
+`scripts/demo_agent_capsule_registry.sh` exercises local Ed25519 trust registry
+verification, rotated keys, revoked keys, and untrusted inline-key scan output.
 
 Known edge cases represented in the tests:
 

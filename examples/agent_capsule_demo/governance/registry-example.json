@@ -1,0 +1,25 @@
+{
+  "keys": [
+    {
+      "key_id": "publisher-prod-2026q2",
+      "fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": "trusted",
+      "publisher": "Example Publisher",
+      "note": "Illustrative registry entry. Generate real entries with capsule keys registry-entry."
+    },
+    {
+      "key_id": "publisher-prod-2026q3",
+      "fingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "status": "trusted",
+      "publisher": "Example Publisher",
+      "note": "Illustrates key rotation."
+    },
+    {
+      "key_id": "publisher-prod-2026q1",
+      "fingerprint": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "status": "revoked",
+      "publisher": "Example Publisher",
+      "note": "Illustrates revoked key policy."
+    }
+  ]
+}
