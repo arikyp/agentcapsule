@@ -1,9 +1,11 @@
 import json
+import os
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
+from unittest.mock import patch
 
 from agentcapsule.cli import main
 from agentcapsule.envelope import build_envelope, render_envelope
@@ -80,6 +82,83 @@ class AgentCapsuleCliTests(unittest.TestCase):
             self.assertNotEqual(status, 0)
             self.assertEqual(stdout, "")
             self.assertIn("requires --model", stderr)
+
+    def test_signed_capsule_verifies_with_correct_key(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {"CAPSULE_HMAC_KEY": "secret"}, clear=False):
+            root = Path(tmp)
+            source = root / "payload.txt"
+            capsule = root / "capsule.txt"
+            source.write_text("signed state", encoding="utf-8")
+
+            self.assertEqual(
+                _run_cli(
+                    [
+                        "pack",
+                        str(source),
+                        "--out",
+                        str(capsule),
+                        "--sign-key-env",
+                        "CAPSULE_HMAC_KEY",
+                        "--signature-key-id",
+                        "test-key",
+                    ]
+                ),
+                0,
+            )
+            status, stdout, stderr = _capture_cli(["verify", str(capsule), "--key-env", "CAPSULE_HMAC_KEY", "--json"])
+
+            self.assertEqual(status, 0)
+            self.assertEqual(stderr, "")
+            payload = json.loads(stdout)
+            self.assertEqual(payload["signature_verification"], "ok")
+
+    def test_signed_capsule_rejects_wrong_key(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "payload.txt"
+            capsule = root / "capsule.txt"
+            source.write_text("signed state", encoding="utf-8")
+            with patch.dict(os.environ, {"CAPSULE_HMAC_KEY": "secret"}, clear=False):
+                self.assertEqual(_run_cli(["pack", str(source), "--out", str(capsule), "--sign-key-env", "CAPSULE_HMAC_KEY"]), 0)
+            with patch.dict(os.environ, {"CAPSULE_HMAC_KEY": "wrong"}, clear=False):
+                status, stdout, stderr = _capture_cli(["verify", str(capsule), "--key-env", "CAPSULE_HMAC_KEY"])
+
+            self.assertNotEqual(status, 0)
+            self.assertEqual(stdout, "")
+            self.assertIn("signature verification failed", stderr)
+
+    def test_signed_capsule_rejects_modified_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {"CAPSULE_HMAC_KEY": "secret"}, clear=False):
+            root = Path(tmp)
+            source = root / "payload.txt"
+            capsule = root / "capsule.txt"
+            source.write_text("signed state", encoding="utf-8")
+            self.assertEqual(_run_cli(["pack", str(source), "--out", str(capsule), "--sign-key-env", "CAPSULE_HMAC_KEY"]), 0)
+            text = capsule.read_text(encoding="utf-8").replace("created_by: local", "created_by: other", 1)
+            capsule.write_text(text, encoding="utf-8")
+
+            status, stdout, stderr = _capture_cli(["verify", str(capsule), "--key-env", "CAPSULE_HMAC_KEY"])
+
+            self.assertNotEqual(status, 0)
+            self.assertEqual(stdout, "")
+            self.assertIn("signature verification failed", stderr)
+
+    def test_signed_capsule_rejects_modified_payload(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {"CAPSULE_HMAC_KEY": "secret"}, clear=False):
+            root = Path(tmp)
+            source = root / "payload.txt"
+            capsule = root / "capsule.txt"
+            source.write_text("signed state", encoding="utf-8")
+            self.assertEqual(_run_cli(["pack", str(source), "--out", str(capsule), "--sign-key-env", "CAPSULE_HMAC_KEY"]), 0)
+            text = capsule.read_text(encoding="utf-8")
+            text = text.replace("c2lnbmVkIHN0YXRl", "c2lnbmVkIHN0YXRm", 1)
+            capsule.write_text(text, encoding="utf-8")
+
+            status, stdout, stderr = _capture_cli(["verify", str(capsule), "--key-env", "CAPSULE_HMAC_KEY"])
+
+            self.assertNotEqual(status, 0)
+            self.assertEqual(stdout, "")
+            self.assertIn("signature verification failed", stderr)
 
     def test_cli_returns_nonzero_on_invalid_capsule(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

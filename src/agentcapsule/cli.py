@@ -14,6 +14,7 @@ from agentcapsule.manifest import pack_path, unpack_payload
 from agentcapsule.policy import DEFAULT_POLICY, CapsulePolicy, load_policy
 from agentcapsule.registry import list_codecs
 from agentcapsule.scanner import scan_text
+from agentcapsule.signing import SIGNATURE_NONE, SIGNATURE_HMAC_SHA256, key_from_env, sign_envelope, verify_signature
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -25,21 +26,26 @@ def main(argv: list[str] | None = None) -> int:
     pack_parser.add_argument("--out", required=True)
     pack_parser.add_argument("--codec", choices=known_codecs(), default="base64")
     pack_parser.add_argument("--model", help="LMCodec model JSON for model-backed capsule codecs")
+    pack_parser.add_argument("--sign-key-env", help="environment variable containing HMAC-SHA256 signing key")
+    pack_parser.add_argument("--signature-key-id", help="optional HMAC key identifier written to capsule metadata")
 
     inspect_parser = subparsers.add_parser("inspect", help="inspect capsule metadata")
     inspect_parser.add_argument("capsule")
     inspect_parser.add_argument("--policy", help="JSON policy file")
+    inspect_parser.add_argument("--key-env", help="environment variable containing HMAC-SHA256 verification key")
     inspect_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
 
     verify_parser = subparsers.add_parser("verify", help="verify capsule payload hash")
     verify_parser.add_argument("capsule")
     verify_parser.add_argument("--policy", help="JSON policy file")
+    verify_parser.add_argument("--key-env", help="environment variable containing HMAC-SHA256 verification key")
     verify_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
 
     unpack_parser = subparsers.add_parser("unpack", help="verify and unpack a capsule")
     unpack_parser.add_argument("capsule")
     unpack_parser.add_argument("--out", required=True)
     unpack_parser.add_argument("--policy", help="JSON policy file")
+    unpack_parser.add_argument("--key-env", help="environment variable containing HMAC-SHA256 verification key")
 
     scan_parser = subparsers.add_parser("scan", help="scan a text file for capsules and dense payload risks")
     scan_parser.add_argument("text_file")
@@ -60,6 +66,12 @@ def main(argv: list[str] | None = None) -> int:
                 filename=filename,
                 extra_headers=_backend_headers_from_args(args),
             )
+            if args.sign_key_env:
+                envelope = sign_envelope(
+                    envelope,
+                    key=key_from_env(args.sign_key_env),
+                    key_id=args.signature_key_id,
+                )
             Path(args.out).write_text(render_envelope(envelope), encoding="utf-8", newline="\n")
             print(f"capsule path: {args.out}")
             print(f"codec: {args.codec}")
@@ -71,7 +83,7 @@ def main(argv: list[str] | None = None) -> int:
             policy = _policy_from_args(args)
             envelope = parse_envelope(Path(args.capsule).read_text(encoding="utf-8"))
             policy.check_metadata(envelope)
-            inspection = _inspect_envelope(envelope, policy)
+            inspection = _inspect_envelope(envelope, policy, key_env=args.key_env)
             if args.json:
                 _print_json(inspection)
             else:
@@ -81,10 +93,14 @@ def main(argv: list[str] | None = None) -> int:
             policy = _policy_from_args(args)
             envelope = parse_envelope(Path(args.capsule).read_text(encoding="utf-8"))
             policy.check_metadata(envelope)
+            _verify_signature_from_args(envelope, args)
             payload = verify_envelope(envelope)
             policy.check_payload(payload)
             result = {
                 "verification": "ok",
+                "signature_verification": "ok"
+                if envelope.headers.get("signature", SIGNATURE_NONE) != SIGNATURE_NONE
+                else "unsigned",
                 "payload_bytes": len(payload),
                 "payload_sha256": envelope.payload_sha256,
                 "codec": envelope.codec,
@@ -100,6 +116,7 @@ def main(argv: list[str] | None = None) -> int:
             policy = _policy_from_args(args)
             envelope = parse_envelope(Path(args.capsule).read_text(encoding="utf-8"))
             policy.check_metadata(envelope)
+            _verify_signature_from_args(envelope, args)
             payload = verify_envelope(envelope)
             policy.check_payload(payload)
             written = unpack_payload(
@@ -168,7 +185,7 @@ def _policy_from_args(args: argparse.Namespace) -> CapsulePolicy:
     return DEFAULT_POLICY
 
 
-def _inspect_envelope(envelope, policy: CapsulePolicy) -> dict[str, object]:
+def _inspect_envelope(envelope, policy: CapsulePolicy, *, key_env: str | None = None) -> dict[str, object]:
     result: dict[str, object] = {
         "capsule_version": envelope.headers["capsule_version"],
         "codec": envelope.codec,
@@ -176,6 +193,8 @@ def _inspect_envelope(envelope, policy: CapsulePolicy) -> dict[str, object]:
         "compression": envelope.headers["compression"],
         "encryption": envelope.headers["encryption"],
         "signature_mode": envelope.headers["signature"],
+        "signature_key_id": envelope.headers.get("signature_key_id"),
+        "signature_verification": _signature_status(envelope),
         "payload_sha256": envelope.payload_sha256,
         "created_by": envelope.headers["created_by"],
         "created_at": envelope.headers["created_at"],
@@ -184,6 +203,9 @@ def _inspect_envelope(envelope, policy: CapsulePolicy) -> dict[str, object]:
         "risk_notes": _risk_notes(envelope),
     }
     try:
+        if key_env:
+            verify_signature(envelope, key=key_from_env(key_env))
+            result["signature_verification"] = "ok"
         payload = verify_envelope(envelope)
         policy.check_payload(payload)
         result["verification_status"] = "ok"
@@ -201,6 +223,9 @@ def _print_inspection(inspection: dict[str, object]) -> None:
     print(f"compression: {inspection['compression']}")
     print(f"encryption: {inspection['encryption']}")
     print(f"signature mode: {inspection['signature_mode']}")
+    if inspection.get("signature_key_id"):
+        print(f"signature key id: {inspection['signature_key_id']}")
+    print(f"signature verification: {inspection['signature_verification']}")
     print(f"payload sha256: {inspection['payload_sha256']}")
     metadata = inspection["codec_metadata"]
     if isinstance(metadata, dict):
@@ -229,11 +254,28 @@ def _risk_notes(envelope) -> list[str]:
     notes = []
     if envelope.headers.get("signature") == "none":
         notes.append("unsigned capsule; SHA256 only proves integrity against the header")
+    if envelope.headers.get("signature") == SIGNATURE_HMAC_SHA256:
+        notes.append("HMAC signature proves shared-secret authenticity, not public identity")
     if envelope.headers.get("encryption") == "none":
         notes.append("payload is not encrypted")
     if envelope.codec != "base64":
         notes.append("non-base64 codec requires matching decoder support")
     return notes
+
+
+def _verify_signature_from_args(envelope, args: argparse.Namespace) -> None:
+    mode = envelope.headers.get("signature", SIGNATURE_NONE)
+    if mode == SIGNATURE_NONE:
+        return
+    key_env = getattr(args, "key_env", None)
+    if not key_env:
+        raise CapsuleError(f"{mode} signature requires --key-env")
+    verify_signature(envelope, key=key_from_env(key_env))
+
+
+def _signature_status(envelope) -> str:
+    mode = envelope.headers.get("signature", SIGNATURE_NONE)
+    return "unsigned" if mode == SIGNATURE_NONE else "not_checked"
 
 
 def _backend_headers_from_args(args: argparse.Namespace) -> dict[str, str]:

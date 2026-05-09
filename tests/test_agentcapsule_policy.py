@@ -49,6 +49,20 @@ class AgentCapsulePolicyTests(unittest.TestCase):
             with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
                 self.assertNotEqual(main(["verify", str(capsule), "--policy", str(policy)]), 0)
 
+    def test_policy_rejects_unsigned_capsule(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            capsule = root / "capsule.txt"
+            policy = root / "policy.json"
+            capsule.write_text(render_envelope(build_envelope(b"payload")), encoding="utf-8")
+            policy.write_text(
+                json.dumps({"allow_unsigned": False, "required_signature_modes": ["hmac-sha256"]}),
+                encoding="utf-8",
+            )
+
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                self.assertNotEqual(main(["verify", str(capsule), "--policy", str(policy)]), 0)
+
     def test_scan_applies_policy_to_capsules(self) -> None:
         policy = policy_from_mapping({"max_payload_bytes": 3})
         result = scan_text(render_envelope(build_envelope(b"too large")), policy=policy)

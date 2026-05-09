@@ -4,9 +4,9 @@ Agent Capsule Protocol V0 defines a signed-style, inspectable, verifiable text
 artifact for moving exact machine-readable payloads through text-native
 channels: chat, tickets, prompts, email, GitHub issues, and agent traces.
 
-The V0 implementation uses SHA256 integrity verification and reserves explicit
-metadata fields for future signing and encryption. It does not implement real
-signature or encryption primitives.
+The V0 implementation uses SHA256 integrity verification and supports optional
+HMAC-SHA256 signatures for shared-secret authenticity. It reserves explicit
+metadata fields for future public-key signing and encryption.
 
 ## Problem Statement
 
@@ -50,7 +50,9 @@ headers, missing boundaries, and hash mismatches are rejected.
 - `payload_sha256`: SHA256 of the decoded payload bytes.
 - `compression`: reserved, currently `none`.
 - `encryption`: reserved, currently `none`.
-- `signature`: reserved, currently `none`.
+- `signature`: `none` or `hmac-sha256`.
+- `signature_key_id`: optional shared-secret key identifier.
+- `signature_value`: HMAC-SHA256 signature when `signature` is `hmac-sha256`.
 - `created_by`: local producer identifier.
 - `created_at`: UTC ISO timestamp.
 - `policy`: policy hint, currently `inspect-before-use`.
@@ -102,6 +104,10 @@ size, SHA256, and base64 file contents. Paths are sorted deterministically.
 V0 proves the primitive, not the full security product.
 
 - SHA256 detects payload changes relative to the capsule header.
+- HMAC-SHA256 can authenticate a capsule when sender and receiver already share
+  a secret key.
+- HMAC-SHA256 does not provide public identity, non-repudiation, key discovery,
+  or enterprise trust registry semantics.
 - Metadata is readable before decode.
 - Decode and unpack are separate from execution.
 - Unpack verifies first and writes only under the requested output directory.
@@ -161,6 +167,7 @@ V0 supports a small local JSON policy for inspect, verify, unpack, and scan:
   "require_known_codec": true,
   "require_hash": true,
   "allow_unsigned": true,
+  "required_signature_modes": [],
   "allowed_content_types": [
     "application/octet-stream",
     "application/vnd.agent.bundle+json"
@@ -208,6 +215,18 @@ capsule pack payload.bin \
 capsule inspect capsule.txt
 capsule verify capsule.txt
 ```
+
+Create and verify an HMAC-signed capsule:
+
+```bash
+CAPSULE_HMAC_KEY='shared secret' \
+  capsule pack payload.bin --out capsule.txt --sign-key-env CAPSULE_HMAC_KEY
+CAPSULE_HMAC_KEY='shared secret' \
+  capsule verify capsule.txt --key-env CAPSULE_HMAC_KEY
+```
+
+The HMAC covers all capsule headers except `signature_value` plus the encoded
+payload text. Changing metadata or payload text invalidates the signature.
 
 ## Example Capsule
 

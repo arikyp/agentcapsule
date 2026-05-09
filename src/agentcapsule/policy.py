@@ -18,6 +18,7 @@ class CapsulePolicy:
     require_known_codec: bool = True
     require_hash: bool = True
     allow_unsigned: bool = True
+    required_signature_modes: frozenset[str] = field(default_factory=frozenset)
     allowed_content_types: frozenset[str] = field(
         default_factory=lambda: frozenset({SINGLE_FILE_CONTENT_TYPE, BUNDLE_CONTENT_TYPE})
     )
@@ -31,6 +32,8 @@ class CapsulePolicy:
             raise CapsulePolicyError("payload hash is required")
         if not self.allow_unsigned and envelope.headers.get("signature") == "none":
             raise CapsulePolicyError("unsigned capsules are not allowed")
+        if self.required_signature_modes and envelope.headers.get("signature") not in self.required_signature_modes:
+            raise CapsulePolicyError("signature mode is not allowed")
         if envelope.content_type not in self.allowed_content_types:
             raise CapsulePolicyError(f"content type is not allowed: {envelope.content_type}")
 
@@ -45,6 +48,7 @@ _POLICY_FIELDS = {
     "require_known_codec",
     "require_hash",
     "allow_unsigned",
+    "required_signature_modes",
     "allowed_content_types",
     "max_payload_bytes",
     "decode_to_sandbox_required",
@@ -84,6 +88,12 @@ def policy_from_mapping(data: dict[str, Any]) -> CapsulePolicy:
         if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
             raise CapsulePolicyError("policy field must be a list of strings: allowed_content_types")
         values["allowed_content_types"] = frozenset(value)
+
+    if "required_signature_modes" in data:
+        value = data["required_signature_modes"]
+        if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+            raise CapsulePolicyError("policy field must be a list of strings: required_signature_modes")
+        values["required_signature_modes"] = frozenset(value)
 
     if "max_payload_bytes" in data:
         value = data["max_payload_bytes"]

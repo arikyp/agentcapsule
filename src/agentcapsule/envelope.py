@@ -43,6 +43,8 @@ HEADER_ORDER = (
     "compression",
     "encryption",
     "signature",
+    "signature_key_id",
+    "signature_value",
     "created_by",
     "created_at",
     "policy",

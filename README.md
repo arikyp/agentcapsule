@@ -114,6 +114,7 @@ capsule scan capsule.txt
 capsule codecs
 capsule inspect capsule.txt --json
 capsule pack payload.bin --codec lmcodec-ngram-v2 --model tests/fixtures/ngram_model_v1.json --out capsule.txt
+CAPSULE_HMAC_KEY='shared secret' capsule pack payload.bin --out capsule.txt --sign-key-env CAPSULE_HMAC_KEY
 ```
 
 `capsule scan --json` emits typed findings with source locations for governance
