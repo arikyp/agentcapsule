@@ -2,6 +2,7 @@
   "require_known_codec": true,
   "require_hash": true,
   "allow_unsigned": true,
+  "required_signature_modes": [],
   "allowed_content_types": [
     "application/octet-stream",
     "application/vnd.agent.bundle+json"

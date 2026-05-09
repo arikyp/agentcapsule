@@ -11,6 +11,8 @@ OUT_DIR="$TMP_DIR/decoded"
 NGRAM_PAYLOAD="$TMP_DIR/ngram-payload.txt"
 NGRAM_CAPSULE="$TMP_DIR/ngram-capsule.txt"
 NGRAM_OUT="$TMP_DIR/ngram-decoded"
+SIGNED_PAYLOAD="$TMP_DIR/signed-payload.txt"
+SIGNED_CAPSULE="$TMP_DIR/signed-capsule.txt"
 
 cleanup() {
   rm -rf "$TMP_DIR"
@@ -33,6 +35,13 @@ printf 'ngram capsule demo\n' > "$NGRAM_PAYLOAD"
   --out "$NGRAM_CAPSULE"
 "$PYTHON" -m agentcapsule.cli verify "$NGRAM_CAPSULE"
 "$PYTHON" -m agentcapsule.cli unpack "$NGRAM_CAPSULE" --out "$NGRAM_OUT"
+
+printf 'signed capsule demo\n' > "$SIGNED_PAYLOAD"
+CAPSULE_HMAC_KEY='demo shared secret' "$PYTHON" -m agentcapsule.cli pack "$SIGNED_PAYLOAD" \
+  --out "$SIGNED_CAPSULE" \
+  --sign-key-env CAPSULE_HMAC_KEY \
+  --signature-key-id demo
+CAPSULE_HMAC_KEY='demo shared secret' "$PYTHON" -m agentcapsule.cli verify "$SIGNED_CAPSULE" --key-env CAPSULE_HMAC_KEY
 
 cmp "$DEMO_DIR/notes.md" "$OUT_DIR/notes.md"
 cmp "$DEMO_DIR/manifest-example.json" "$OUT_DIR/manifest-example.json"
