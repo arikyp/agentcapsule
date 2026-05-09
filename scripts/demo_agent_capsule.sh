@@ -8,6 +8,9 @@ POLICY="$ROOT_DIR/examples/agent_capsule_demo/policy-strict.json"
 TMP_DIR=$(mktemp -d)
 CAPSULE="$TMP_DIR/capsule.txt"
 OUT_DIR="$TMP_DIR/decoded"
+NGRAM_PAYLOAD="$TMP_DIR/ngram-payload.txt"
+NGRAM_CAPSULE="$TMP_DIR/ngram-capsule.txt"
+NGRAM_OUT="$TMP_DIR/ngram-decoded"
 
 cleanup() {
   rm -rf "$TMP_DIR"
@@ -23,8 +26,17 @@ export PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}"
 "$PYTHON" -m agentcapsule.cli codecs
 "$PYTHON" -m agentcapsule.cli scan "$CAPSULE" --json >/dev/null
 
+printf 'ngram capsule demo\n' > "$NGRAM_PAYLOAD"
+"$PYTHON" -m agentcapsule.cli pack "$NGRAM_PAYLOAD" \
+  --codec lmcodec-ngram-v2 \
+  --model "$ROOT_DIR/tests/fixtures/ngram_model_v1.json" \
+  --out "$NGRAM_CAPSULE"
+"$PYTHON" -m agentcapsule.cli verify "$NGRAM_CAPSULE"
+"$PYTHON" -m agentcapsule.cli unpack "$NGRAM_CAPSULE" --out "$NGRAM_OUT"
+
 cmp "$DEMO_DIR/notes.md" "$OUT_DIR/notes.md"
 cmp "$DEMO_DIR/manifest-example.json" "$OUT_DIR/manifest-example.json"
 cmp "$DEMO_DIR/tool-config.json" "$OUT_DIR/tool-config.json"
+cmp "$NGRAM_PAYLOAD" "$NGRAM_OUT/ngram-payload.txt"
 
 echo "Agent Capsule demo ok"

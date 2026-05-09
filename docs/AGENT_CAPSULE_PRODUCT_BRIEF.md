@@ -48,6 +48,8 @@ Near-term protocol layers:
 
 - backend registry for `lmcodec-ngram-v2` and quality-shaped carriers,
 - JSON policy loading,
+- smaller model reference modes for n-gram capsules when a local trust registry
+  exists,
 - signed capsules with Ed25519,
 - encrypted capsules with AES-GCM or age-style recipients,
 - explicit trust registry and publisher identity,

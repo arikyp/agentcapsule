@@ -29,6 +29,13 @@ _CODECS: tuple[CodecDescriptor, ...] = (
         requires_external_model=False,
         notes="uses the existing default FixedLM path; no V2 registry required",
     ),
+    CodecDescriptor(
+        name="lmcodec-ngram-v2",
+        purpose="self-contained LMCodec n-gram capsule backend",
+        stability="experimental-v0",
+        requires_external_model=False,
+        notes="embeds canonical n-gram model JSON in capsule headers with fingerprint and SHA256 metadata",
+    ),
 )
 
 

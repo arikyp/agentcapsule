@@ -62,6 +62,9 @@ V0 includes two dependency-free backends:
 - `base64`: stable interoperability baseline.
 - `lmcodec-fixed`: LMCodec default fixed carrier wrapped as a capsule payload
   backend.
+- `lmcodec-ngram-v2`: LMCodec n-gram backend with explicit model metadata in
+  the capsule header. V0 embeds canonical n-gram model JSON as base64 metadata
+  and records model type, fingerprint, SHA256, order, and uniform mix.
 
 The local codec registry is inspectable:
 
@@ -179,6 +182,17 @@ Use the LMCodec fixed backend:
 
 ```bash
 capsule pack payload.bin --codec lmcodec-fixed --out capsule.txt
+capsule verify capsule.txt
+```
+
+Use the self-contained LMCodec n-gram backend:
+
+```bash
+capsule pack payload.bin \
+  --codec lmcodec-ngram-v2 \
+  --model tests/fixtures/ngram_model_v1.json \
+  --out capsule.txt
+capsule inspect capsule.txt
 capsule verify capsule.txt
 ```
 
