@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import floor, isfinite
+from math import floor, fsum, isfinite
 
 DEFAULT_TOTAL = 65536
 
@@ -30,7 +30,7 @@ def quantize(probs: list[float] | tuple[float, ...], *, total: int = DEFAULT_TOT
         raise ValueError("vocabulary size cannot exceed total")
 
     cleaned = [p if isfinite(p) and p > 0.0 else 0.0 for p in probs]
-    prob_sum = sum(cleaned)
+    prob_sum = fsum(cleaned)
     if prob_sum <= 0.0:
         cleaned = [1.0 / len(probs)] * len(probs)
     else:
@@ -73,4 +73,3 @@ def quantize(probs: list[float] | tuple[float, ...], *, total: int = DEFAULT_TOT
     if running != total:
         raise AssertionError("quantizer failed to hit total")
     return QuantizedDistribution(tuple(frequencies), tuple(cdf), total)
-

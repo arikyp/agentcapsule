@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import isfinite, log2
+from math import fsum, isfinite, log2
 
 from lmcodec.errors import LMCodecError
 
@@ -81,7 +81,7 @@ def _normalize(probs: list[float] | tuple[float, ...]) -> tuple[float, ...]:
     if not probs:
         raise LMCodecError("probability distribution is empty")
     cleaned = tuple(prob if isfinite(prob) and prob > 0.0 else 0.0 for prob in probs)
-    total = sum(cleaned)
+    total = fsum(cleaned)
     if total <= 0.0:
         return tuple(1.0 / len(cleaned) for _ in cleaned)
     return tuple(prob / total for prob in cleaned)
