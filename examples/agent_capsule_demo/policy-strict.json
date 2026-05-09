@@ -1,0 +1,11 @@
+{
+  "require_known_codec": true,
+  "require_hash": true,
+  "allow_unsigned": true,
+  "allowed_content_types": [
+    "application/octet-stream",
+    "application/vnd.agent.bundle+json"
+  ],
+  "max_payload_bytes": 1048576,
+  "decode_to_sandbox_required": true
+}

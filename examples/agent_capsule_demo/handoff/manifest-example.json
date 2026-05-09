@@ -1,0 +1,8 @@
+{
+  "task": "demo-agent-handoff",
+  "priority": "low",
+  "artifacts": [
+    "notes.md",
+    "tool-config.json"
+  ]
+}

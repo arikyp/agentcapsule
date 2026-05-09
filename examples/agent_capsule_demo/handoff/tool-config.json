@@ -1,0 +1,5 @@
+{
+  "tool": "capsule-demo",
+  "mode": "inspect-before-use",
+  "max_payload_bytes": 1048576
+}

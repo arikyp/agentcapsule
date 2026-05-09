@@ -97,6 +97,30 @@ PYTHONPATH=src python3 -m lmcodec.cli decode \
 cmp payload.bin recovered.bin
 ```
 
+## Agent Capsule Protocol Pivot
+
+LMCodec now also has an early product layer: Agent Capsule Protocol V0.
+Capsules are inspectable text artifacts that wrap exact machine-readable
+payloads with plaintext metadata, SHA256 verification, and safe unpack flows.
+LMCodec remains a codec backend; Agent Capsules are the artifact-transfer and
+governance layer.
+
+```bash
+capsule pack examples/agent_capsule_demo/handoff --out capsule.txt
+capsule inspect capsule.txt
+capsule verify capsule.txt
+capsule unpack capsule.txt --out decoded
+capsule scan capsule.txt
+capsule codecs
+capsule inspect capsule.txt --json
+```
+
+`capsule scan --json` emits typed findings with source locations for governance
+logs and agent traces.
+
+See [docs/AGENT_CAPSULE_PROTOCOL_V0.md](docs/AGENT_CAPSULE_PROTOCOL_V0.md) and
+[docs/AGENT_CAPSULE_PRODUCT_BRIEF.md](docs/AGENT_CAPSULE_PRODUCT_BRIEF.md).
+
 ## Architecture
 
 LMCodec has five core layers:
@@ -249,6 +273,10 @@ Pinned Transformer fixture metrics for `bytes(range(256))` with
 - [docs/QUICKSTART.md](docs/QUICKSTART.md): installed CLI usage.
 - [docs/BENCHMARKING.md](docs/BENCHMARKING.md): structured benchmark JSON.
 - [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md): bounded V2 experiment runner.
+- [docs/AGENT_CAPSULE_PROTOCOL_V0.md](docs/AGENT_CAPSULE_PROTOCOL_V0.md):
+  Agent Capsule V0 envelope, backends, verification, and scan flow.
+- [docs/AGENT_CAPSULE_PRODUCT_BRIEF.md](docs/AGENT_CAPSULE_PRODUCT_BRIEF.md):
+  product pivot brief and governance roadmap.
 - [docs/V2_BASELINE.md](docs/V2_BASELINE.md): V2 baseline metrics and first
   candidate runs.
 - [docs/V2_EXPERIMENT_PROTOCOL.md](docs/V2_EXPERIMENT_PROTOCOL.md): V2
