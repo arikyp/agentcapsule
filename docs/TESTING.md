@@ -16,6 +16,21 @@ These tests intentionally do not use Hypothesis or external dependencies. If a
 future property-test dependency is added, keep the current fixed-seed tests as
 the stable regression baseline.
 
+GitHub Actions runs the same dependency-free verification path on pull requests
+and pushes to `main` across Python 3.11, 3.12, and 3.13:
+
+```bash
+python3 -m pip install -e .
+PYTHONPATH=src python3 -m unittest discover -s tests
+sh scripts/verify_v1.sh
+python3 -m compileall src scripts tests
+PYTHON=python3 sh scripts/demo_agent_capsule.sh
+sh scripts/release_check.sh
+```
+
+The Agent Capsule demo exercises pack, inspect, verify, unpack, scan JSON,
+codec registry output, `lmcodec-ngram-v2`, and HMAC signing.
+
 Known edge cases represented in the tests:
 
 - Non-finite, negative, and zero probabilities are cleaned before quantization.
