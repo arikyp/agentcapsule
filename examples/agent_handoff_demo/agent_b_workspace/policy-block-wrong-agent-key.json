@@ -1,0 +1,20 @@
+{
+  "require_known_codec": true,
+  "require_hash": true,
+  "allow_unsigned": false,
+  "required_signature_modes": [
+    "ed25519"
+  ],
+  "require_signature_registry": true,
+  "allow_inline_public_keys": false,
+  "trusted_signature_key_ids": [
+    "agent-a-demo-wrong-key"
+  ],
+  "trusted_signature_key_fingerprints": [],
+  "allowed_content_types": [
+    "application/vnd.agent.bundle+json"
+  ],
+  "max_payload_bytes": 1048576,
+  "decode_to_sandbox_required": true
+}
+

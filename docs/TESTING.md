@@ -40,6 +40,8 @@ installed.
 `scripts/demo_agent_to_agent_handoff.sh` runs the first local Agent A to Agent B
 handoff experiment, writes an `events.jsonl` trace, and evaluates the transcript
 into `evaluation.json`.
+`scripts/demo_agent_handoff_policy_matrix.sh` runs enterprise policy scenarios
+against the same handoff and writes `policy-matrix-report.json`.
 
 Known edge cases represented in the tests:
 

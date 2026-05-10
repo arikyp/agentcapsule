@@ -1,0 +1,49 @@
+{
+  "matrix_version": 1,
+  "description": "Enterprise policy tiers for the local Agent A to Agent B handoff demo.",
+  "scenarios": [
+    {
+      "name": "observe_signed_bundle",
+      "policy": "policy-observe-signed-bundle.json",
+      "artifact": "signed",
+      "operation": "verify",
+      "expected_disposition": "allow"
+    },
+    {
+      "name": "strict_registry_signed_bundle",
+      "policy": "policy-require-agent-a-registry.json",
+      "artifact": "signed",
+      "operation": "verify",
+      "expected_disposition": "allow"
+    },
+    {
+      "name": "strict_message_scan",
+      "policy": "policy-require-agent-a-registry.json",
+      "artifact": "signed",
+      "operation": "scan",
+      "expected_disposition": "review"
+    },
+    {
+      "name": "wrong_agent_key_block",
+      "policy": "policy-block-wrong-agent-key.json",
+      "artifact": "signed",
+      "operation": "verify",
+      "expected_disposition": "block"
+    },
+    {
+      "name": "payload_limit_block",
+      "policy": "policy-block-large-payload.json",
+      "artifact": "signed",
+      "operation": "verify",
+      "expected_disposition": "block"
+    },
+    {
+      "name": "unsigned_handoff_block",
+      "policy": "policy-require-agent-a-registry.json",
+      "artifact": "unsigned",
+      "operation": "verify",
+      "expected_disposition": "block"
+    }
+  ]
+}
+
