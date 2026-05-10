@@ -37,6 +37,8 @@ verification, rotated keys, revoked keys, and untrusted inline-key scan output.
 `scripts/demo_agent_capsule_audit.sh` emits allow, review, and block audit
 events, plus a registry-trusted signature event when `lmcodec[signing]` is
 installed.
+`scripts/demo_agent_to_agent_handoff.sh` runs the first local Agent A to Agent B
+handoff experiment and writes an `events.jsonl` trace.
 
 Known edge cases represented in the tests:
 
