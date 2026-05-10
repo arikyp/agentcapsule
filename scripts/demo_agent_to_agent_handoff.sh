@@ -14,6 +14,11 @@ if ! "$PYTHON" -c 'import cryptography' >/dev/null 2>&1; then
 fi
 
 "$PYTHON" "$ROOT_DIR/scripts/run_agent_handoff_experiment.py" --out-dir "$OUT_DIR"
+"$PYTHON" "$ROOT_DIR/scripts/evaluate_agent_handoff_transcript.py" \
+  --events "$OUT_DIR/events.jsonl" \
+  --message "$OUT_DIR/agent-a-to-agent-b-message.txt" \
+  --out "$OUT_DIR/evaluation.json" \
+  --pretty >/dev/null
 
 echo "=== events.jsonl ==="
 "$PYTHON" - "$OUT_DIR/events.jsonl" <<'PY'
@@ -29,6 +34,19 @@ for line in Path(sys.argv[1]).read_text(encoding="utf-8").splitlines():
     print(f"{operation}: {disposition}")
     if operation == "compare_decoded_artifacts":
         print(f"  match: {result.get('match')}")
+PY
+
+echo "=== evaluation ==="
+"$PYTHON" - "$OUT_DIR/evaluation.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+print(f"disposition: {report['disposition']}")
+print(f"score: {report['score']}")
+for check in report["checks"]:
+    print(f"{check['id']}: {check['status']}")
 PY
 
 echo "Agent to agent handoff demo ok"

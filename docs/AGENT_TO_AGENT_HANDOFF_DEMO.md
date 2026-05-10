@@ -18,6 +18,7 @@ The demo is local and deterministic. It does not call external LLM APIs.
 8. Unpack the capsule into Agent B's sandbox output directory.
 9. Compare decoded artifacts against Agent A's original workspace.
 10. Emit `events.jsonl` with trace and audit evidence.
+11. Evaluate the transcript and trace into `evaluation.json`.
 
 ## Workspaces
 
@@ -59,6 +60,7 @@ The output directory contains:
 - `agent-a-to-agent-b-message.txt`
 - `agent-b-decoded/`
 - `events.jsonl`
+- `evaluation.json`
 
 ## JSONL Trace
 
@@ -81,3 +83,29 @@ This is the intended governance shape: the channel scan can request review
 while exact capsule verification and sandbox unpacking still produce strong
 evidence for safe continuation.
 
+## Transcript Evaluation
+
+`scripts/evaluate_agent_handoff_transcript.py` turns the text message and
+`events.jsonl` trace into a compact evaluation report:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/evaluate_agent_handoff_transcript.py \
+  --events /tmp/agent-handoff-demo/events.jsonl \
+  --message /tmp/agent-handoff-demo/agent-a-to-agent-b-message.txt \
+  --pretty
+```
+
+The evaluator checks that:
+
+- the transcript has a human-readable summary before the capsule
+- the transcript contains one complete Agent Capsule envelope
+- scanning found a valid capsule with no blocking risk
+- verification succeeded
+- the signature is registry-trusted, not merely valid
+- unpack wrote files to the sandbox
+- decoded artifacts match Agent A's original files
+- no event in the trace produced a `block` disposition
+
+The report returns `allow`, `review`, or `block` plus a score and per-check
+evidence. This makes the demo suitable for repeated agent-to-agent experiments
+where a receiver needs machine-readable acceptance criteria.

@@ -38,7 +38,8 @@ verification, rotated keys, revoked keys, and untrusted inline-key scan output.
 events, plus a registry-trusted signature event when `lmcodec[signing]` is
 installed.
 `scripts/demo_agent_to_agent_handoff.sh` runs the first local Agent A to Agent B
-handoff experiment and writes an `events.jsonl` trace.
+handoff experiment, writes an `events.jsonl` trace, and evaluates the transcript
+into `evaluation.json`.
 
 Known edge cases represented in the tests:
 

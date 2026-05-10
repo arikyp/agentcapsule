@@ -147,6 +147,9 @@ For structured governance events, see
 [docs/AGENT_CAPSULE_AUDIT_LOG_V0.md](docs/AGENT_CAPSULE_AUDIT_LOG_V0.md).
 For an observable agent-to-agent handoff experiment, see
 [docs/AGENT_TO_AGENT_HANDOFF_DEMO.md](docs/AGENT_TO_AGENT_HANDOFF_DEMO.md).
+The handoff demo writes `events.jsonl` plus an evaluator report that checks the
+summary, capsule, registry-trusted signature, sandbox unpack, and artifact
+comparison evidence.
 
 ## Architecture
 
