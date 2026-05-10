@@ -119,10 +119,23 @@ capsule keys generate --private-key publisher.key --public-key publisher.pub
 capsule pack payload.bin --out capsule.txt --sign-ed25519-key publisher.key --signature-key-id publisher
 capsule verify capsule.txt --ed25519-public-key publisher.pub
 capsule verify capsule.txt --signature-registry trusted-keys.json
+capsule verify capsule.txt --audit-json
 ```
 
+Core capsule, HMAC, base64, and LMCodec backends work with the default
+dependency-free install. Ed25519 demos/tests require the optional signing extra:
+
+```bash
+python3 -m pip install -e ".[signing]"
+```
+
+For Ed25519, distinguish validity from trust: `signature_verification: ok`
+means the capsule was signed by the matching key; `signature_trust.status:
+trusted` means the key also passed local registry and policy checks.
+
 `capsule scan --json` emits typed findings with source locations for governance
-logs and agent traces.
+logs and agent traces. `--audit-json` on `inspect`, `verify`, `unpack`, and
+`scan` emits a consistent allow/review/block governance event.
 
 See [docs/AGENT_CAPSULE_PROTOCOL_V0.md](docs/AGENT_CAPSULE_PROTOCOL_V0.md) and
 [docs/AGENT_CAPSULE_PRODUCT_BRIEF.md](docs/AGENT_CAPSULE_PRODUCT_BRIEF.md).
@@ -130,6 +143,8 @@ For security assumptions, HMAC limits, and governance policy examples, see
 [docs/AGENT_CAPSULE_THREAT_MODEL.md](docs/AGENT_CAPSULE_THREAT_MODEL.md).
 For the public-key signing proposal, see
 [docs/AGENT_CAPSULE_ED25519_DESIGN.md](docs/AGENT_CAPSULE_ED25519_DESIGN.md).
+For structured governance events, see
+[docs/AGENT_CAPSULE_AUDIT_LOG_V0.md](docs/AGENT_CAPSULE_AUDIT_LOG_V0.md).
 
 ## Architecture
 

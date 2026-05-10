@@ -34,6 +34,9 @@ codec registry output, `lmcodec-ngram-v2`, and HMAC signing.
 `lmcodec[signing]` Ed25519 prototype when `cryptography` is installed.
 `scripts/demo_agent_capsule_registry.sh` exercises local Ed25519 trust registry
 verification, rotated keys, revoked keys, and untrusted inline-key scan output.
+`scripts/demo_agent_capsule_audit.sh` emits allow, review, and block audit
+events, plus a registry-trusted signature event when `lmcodec[signing]` is
+installed.
 
 Known edge cases represented in the tests:
 

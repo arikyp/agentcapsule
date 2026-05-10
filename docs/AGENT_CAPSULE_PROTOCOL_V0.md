@@ -133,6 +133,12 @@ Non-goals for V0:
 - Default runtime dependencies beyond the Python standard library and existing
   LMCodec code. Ed25519 is available through the optional `signing` extra.
 
+Install the optional signing extra before running Ed25519 demos/tests:
+
+```bash
+python3 -m pip install -e ".[signing]"
+```
+
 ## Decode Flow
 
 1. Detect an Agent Capsule envelope.
@@ -172,6 +178,10 @@ The scan report also includes `report_type`,
 `schema_version`, `disposition`, and the effective policy. Disposition is a
 simple local mapping: `low` risk allows, `medium` risk requires review, and
 `high` risk blocks.
+
+`inspect`, `verify`, `unpack`, and `scan` also support `--audit-json`, which
+wraps operation results in a consistent audit event. See
+[AGENT_CAPSULE_AUDIT_LOG_V0.md](AGENT_CAPSULE_AUDIT_LOG_V0.md).
 
 ## Local Policy JSON
 
@@ -221,9 +231,11 @@ capsule scan capsule.txt
 capsule codecs
 capsule verify capsule.txt --policy examples/agent_capsule_demo/policy-strict.json
 capsule inspect capsule.txt --json
+capsule verify capsule.txt --audit-json
 capsule scan capsule.txt --json
 capsule codecs --json
 sh scripts/demo_agent_capsule_governance.sh
+sh scripts/demo_agent_capsule_audit.sh
 ```
 
 The `--json` forms are intended for agent traces, CI checks, and governance

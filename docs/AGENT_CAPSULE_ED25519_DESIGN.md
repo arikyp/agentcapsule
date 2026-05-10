@@ -208,6 +208,12 @@ Recommendation:
 This keeps the transport codec usable in minimal environments while allowing a
 production-grade signing path for deployments that opt in.
 
+Local development command:
+
+```bash
+python3 -m pip install -e ".[signing]"
+```
+
 ## Verification Order
 
 Verifier flow:
