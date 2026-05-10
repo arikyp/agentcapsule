@@ -207,6 +207,51 @@ class AgentCapsuleRegistryTests(unittest.TestCase):
             self.assertEqual(payload["keys"][0]["key_id"], "publisher-prod")
             self.assertEqual(payload["keys"][0]["publisher"], "Example Publisher")
 
+    def test_verify_audit_allows_trusted_registry_key(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            private_key, public_key = _generate_keys(root)
+            registry = _write_registry(root, public_key, key_id="publisher-prod", publisher="Example Publisher")
+            policy = _write_policy(root, require_registry=True)
+            source = root / "payload.txt"
+            capsule = root / "capsule.txt"
+            source.write_text("trusted registry state", encoding="utf-8")
+            self.assertEqual(
+                _run_cli(
+                    [
+                        "pack",
+                        str(source),
+                        "--out",
+                        str(capsule),
+                        "--sign-ed25519-key",
+                        str(private_key),
+                        "--signature-key-id",
+                        "publisher-prod",
+                        "--no-inline-public-key",
+                    ]
+                ),
+                0,
+            )
+
+            status, stdout, stderr = _capture_cli(
+                [
+                    "verify",
+                    str(capsule),
+                    "--policy",
+                    str(policy),
+                    "--signature-registry",
+                    str(registry),
+                    "--audit-json",
+                ]
+            )
+
+            self.assertEqual(status, 0)
+            self.assertEqual(stderr, "")
+            event = json.loads(stdout)
+            self.assertEqual(event["operation"], "verify")
+            self.assertEqual(event["disposition"], "allow")
+            self.assertEqual(event["result"]["signature_trust"]["status"], "trusted")
+
 
 def _generate_keys(root: Path) -> tuple[Path, Path]:
     private_key = root / "publisher.key"

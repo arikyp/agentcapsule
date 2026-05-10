@@ -34,6 +34,13 @@ class AgentCapsuleDesignDocsTests(unittest.TestCase):
         self.assertEqual(data["project"]["dependencies"], [])
         self.assertEqual(data["project"]["optional-dependencies"]["signing"], ["cryptography>=46,<47"])
 
+    def test_audit_log_doc_is_linked(self) -> None:
+        self.assertIn("AGENT_CAPSULE_AUDIT_LOG_V0.md", (ROOT / "README.md").read_text(encoding="utf-8"))
+        self.assertIn(
+            "AGENT_CAPSULE_AUDIT_LOG_V0.md",
+            (ROOT / "docs" / "AGENT_CAPSULE_PROTOCOL_V0.md").read_text(encoding="utf-8"),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

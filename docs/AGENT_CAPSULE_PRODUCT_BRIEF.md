@@ -40,6 +40,8 @@ CapsuleGuard / AI text channel governance:
 - emit governance dispositions such as allow, review, or block,
 - produce audit-friendly metadata,
 - emit machine-readable JSON for governance logs and agent traces,
+- emit consistent allow/review/block audit events for inspect, verify, unpack,
+  and scan,
 - surface typed scan findings with source location and capped evidence,
 - later add signatures, registry policy, and channel integrations.
 
@@ -68,6 +70,10 @@ Later product layers:
 
 V0 intentionally stays small: exact artifact to inspectable text capsule,
 verify, apply local policy, and unpack safely.
+
+Important distinction: a valid Ed25519 signature proves the capsule was signed
+by the corresponding public key. A trusted signature means that key also passed
+local registry and policy checks.
 
 The V0 security assumptions and HMAC limits are documented in
 [AGENT_CAPSULE_THREAT_MODEL.md](AGENT_CAPSULE_THREAT_MODEL.md).

@@ -7,6 +7,7 @@ import json
 import sys
 from pathlib import Path
 
+from agentcapsule.audit import audit_event, disposition_from_risk, disposition_from_status, scan_audit_event
 from agentcapsule.backends import known_codecs, ngram_v2_headers_from_model_path
 from agentcapsule.envelope import build_envelope, parse_envelope, render_envelope, verify_envelope
 from agentcapsule.errors import CapsuleError
@@ -62,6 +63,7 @@ def main(argv: list[str] | None = None) -> int:
     inspect_parser.add_argument("--ed25519-public-key", help="base64 raw Ed25519 public key file")
     inspect_parser.add_argument("--signature-registry", help="local JSON signature trust registry")
     inspect_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
+    inspect_parser.add_argument("--audit-json", action="store_true", help="emit structured audit event JSON")
 
     verify_parser = subparsers.add_parser("verify", help="verify capsule payload hash")
     verify_parser.add_argument("capsule")
@@ -70,6 +72,7 @@ def main(argv: list[str] | None = None) -> int:
     verify_parser.add_argument("--ed25519-public-key", help="base64 raw Ed25519 public key file")
     verify_parser.add_argument("--signature-registry", help="local JSON signature trust registry")
     verify_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
+    verify_parser.add_argument("--audit-json", action="store_true", help="emit structured audit event JSON")
 
     unpack_parser = subparsers.add_parser("unpack", help="verify and unpack a capsule")
     unpack_parser.add_argument("capsule")
@@ -78,12 +81,14 @@ def main(argv: list[str] | None = None) -> int:
     unpack_parser.add_argument("--key-env", help="environment variable containing HMAC-SHA256 verification key")
     unpack_parser.add_argument("--ed25519-public-key", help="base64 raw Ed25519 public key file")
     unpack_parser.add_argument("--signature-registry", help="local JSON signature trust registry")
+    unpack_parser.add_argument("--audit-json", action="store_true", help="emit structured audit event JSON")
 
     scan_parser = subparsers.add_parser("scan", help="scan a text file for capsules and dense payload risks")
     scan_parser.add_argument("text_file")
     scan_parser.add_argument("--policy", help="JSON policy file")
     scan_parser.add_argument("--signature-registry", help="local JSON signature trust registry")
     scan_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
+    scan_parser.add_argument("--audit-json", action="store_true", help="emit structured audit event JSON")
 
     codecs_parser = subparsers.add_parser("codecs", help="list registered capsule codecs")
     codecs_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
@@ -149,7 +154,20 @@ def main(argv: list[str] | None = None) -> int:
                 ed25519_public_key=args.ed25519_public_key,
                 signature_registry=signature_registry,
             )
-            if args.json:
+            if args.audit_json:
+                _print_json(
+                    audit_event(
+                        operation="inspect",
+                        disposition=disposition_from_status(
+                            ok=inspection.get("verification_status") == "ok",
+                            signature_trust=_dict_or_none(inspection.get("signature_trust")),
+                        ),
+                        policy=policy,
+                        subject=str(args.capsule),
+                        result=inspection,
+                    )
+                )
+            elif args.json:
                 _print_json(inspection)
             else:
                 _print_inspection(inspection)
@@ -174,7 +192,17 @@ def main(argv: list[str] | None = None) -> int:
                 "content_type": envelope.content_type,
                 "signature_trust": trust.to_dict() if trust else None,
             }
-            if args.json:
+            if args.audit_json:
+                _print_json(
+                    audit_event(
+                        operation="verify",
+                        disposition=disposition_from_status(ok=True, signature_trust=result["signature_trust"]),
+                        policy=policy,
+                        subject=str(args.capsule),
+                        result=result,
+                    )
+                )
+            elif args.json:
                 _print_json(result)
             else:
                 print("verification: ok")
@@ -195,10 +223,33 @@ def main(argv: list[str] | None = None) -> int:
                 Path(args.out),
                 filename=envelope.headers.get("filename"),
             )
-            print("verification: ok")
-            print(f"files written: {len(written)}")
-            for path in written:
-                print(path)
+            result = {
+                "verification": "ok",
+                "signature_verification": "ok"
+                if envelope.headers.get("signature", SIGNATURE_NONE) != SIGNATURE_NONE
+                else "unsigned",
+                "signature_trust": trust.to_dict() if trust else None,
+                "payload_bytes": len(payload),
+                "payload_sha256": envelope.payload_sha256,
+                "codec": envelope.codec,
+                "content_type": envelope.content_type,
+                "files_written": [str(path) for path in written],
+            }
+            if args.audit_json:
+                _print_json(
+                    audit_event(
+                        operation="unpack",
+                        disposition=disposition_from_status(ok=True, signature_trust=result["signature_trust"]),
+                        policy=policy,
+                        subject=str(args.capsule),
+                        result=result,
+                    )
+                )
+            else:
+                print("verification: ok")
+                print(f"files written: {len(written)}")
+                for path in written:
+                    print(path)
             return 0
         if args.command == "scan":
             policy = _policy_from_args(args)
@@ -209,7 +260,9 @@ def main(argv: list[str] | None = None) -> int:
                 signature_registry=signature_registry,
             )
             scan_payload = _scan_report(result, policy)
-            if args.json:
+            if args.audit_json:
+                _print_json(scan_audit_event(report=scan_payload, policy=policy, subject=str(args.text_file)))
+            elif args.json:
                 _print_json(scan_payload)
             else:
                 _print_scan_report(scan_payload)
@@ -258,9 +311,15 @@ def main(argv: list[str] | None = None) -> int:
                     _print_json({"keys": [entry]})
                 return 0
     except CapsuleError as exc:
+        if _wants_audit_json(args):
+            _print_json(_error_audit_event(args, str(exc)))
+            return 2
         print(str(exc), file=sys.stderr)
         return 2
     except OSError as exc:
+        if _wants_audit_json(args):
+            _print_json(_error_audit_event(args, str(exc)))
+            return 2
         print(str(exc), file=sys.stderr)
         return 2
 
@@ -273,6 +332,25 @@ def _policy_from_args(args: argparse.Namespace) -> CapsulePolicy:
     if policy_path:
         return load_policy(Path(policy_path))
     return DEFAULT_POLICY
+
+
+def _wants_audit_json(args: argparse.Namespace) -> bool:
+    return bool(getattr(args, "audit_json", False))
+
+
+def _error_audit_event(args: argparse.Namespace, error: str) -> dict[str, object]:
+    result = {
+        "verification": "failed",
+        "verification_error": error,
+    }
+    return audit_event(
+        operation=str(getattr(args, "command", "unknown")),
+        disposition="block",
+        policy=DEFAULT_POLICY,
+        subject=str(getattr(args, "capsule", getattr(args, "text_file", None))),
+        reasons=[error],
+        result=result,
+    )
 
 
 def _signature_registry_from_args(args: argparse.Namespace) -> SignatureRegistry | None:
@@ -298,11 +376,7 @@ def _scan_report(result, policy: CapsulePolicy) -> dict[str, object]:
 
 
 def _scan_disposition(risk_level: str) -> str:
-    if risk_level == "high":
-        return "block"
-    if risk_level == "medium":
-        return "review"
-    return "allow"
+    return disposition_from_risk(risk_level)
 
 
 def _print_scan_report(report: dict[str, object]) -> None:
@@ -530,6 +604,10 @@ def _codec_to_dict(codec) -> dict[str, object]:
 
 def _print_json(payload: dict[str, object]) -> None:
     print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+
+
+def _dict_or_none(value: object) -> dict[str, object] | None:
+    return value if isinstance(value, dict) else None
 
 
 if __name__ == "__main__":
