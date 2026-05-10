@@ -80,3 +80,5 @@ same agent handoff
 It gives reviewers confidence that policy changes do not silently weaken the
 handoff gate.
 
+For a static dashboard over the handoff and matrix artifacts, see
+[AGENT_HANDOFF_OBSERVABILITY_DASHBOARD_V0.md](AGENT_HANDOFF_OBSERVABILITY_DASHBOARD_V0.md).

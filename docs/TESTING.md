@@ -42,6 +42,8 @@ handoff experiment, writes an `events.jsonl` trace, and evaluates the transcript
 into `evaluation.json`.
 `scripts/demo_agent_handoff_policy_matrix.sh` runs enterprise policy scenarios
 against the same handoff and writes `policy-matrix-report.json`.
+`scripts/demo_agent_handoff_dashboard.sh` renders a static HTML observability
+dashboard from the handoff, evaluator, and policy matrix artifacts.
 
 Known edge cases represented in the tests:
 
