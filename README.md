@@ -145,6 +145,8 @@ For the public-key signing proposal, see
 [docs/AGENT_CAPSULE_ED25519_DESIGN.md](docs/AGENT_CAPSULE_ED25519_DESIGN.md).
 For structured governance events, see
 [docs/AGENT_CAPSULE_AUDIT_LOG_V0.md](docs/AGENT_CAPSULE_AUDIT_LOG_V0.md).
+For an observable agent-to-agent handoff experiment, see
+[docs/AGENT_TO_AGENT_HANDOFF_DEMO.md](docs/AGENT_TO_AGENT_HANDOFF_DEMO.md).
 
 ## Architecture
 
