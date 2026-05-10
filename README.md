@@ -150,6 +150,10 @@ For an observable agent-to-agent handoff experiment, see
 The handoff demo writes `events.jsonl` plus an evaluator report that checks the
 summary, capsule, registry-trusted signature, sandbox unpack, and artifact
 comparison evidence.
+For enterprise policy tiers, see
+[docs/AGENT_HANDOFF_POLICY_MATRIX_V0.md](docs/AGENT_HANDOFF_POLICY_MATRIX_V0.md).
+For the central trust registry direction, see
+[docs/AGENT_CAPSULE_CENTRAL_TRUST_REGISTRY.md](docs/AGENT_CAPSULE_CENTRAL_TRUST_REGISTRY.md).
 
 ## Architecture
 

@@ -109,3 +109,6 @@ The evaluator checks that:
 The report returns `allow`, `review`, or `block` plus a score and per-check
 evidence. This makes the demo suitable for repeated agent-to-agent experiments
 where a receiver needs machine-readable acceptance criteria.
+
+For enterprise policy tiers over the same handoff, see
+[AGENT_HANDOFF_POLICY_MATRIX_V0.md](AGENT_HANDOFF_POLICY_MATRIX_V0.md).
