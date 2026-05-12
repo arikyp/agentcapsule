@@ -1,6 +1,6 @@
-# Agent Capsule Protocol / LMCodec
+# Agent Capsule
 
-[![CI](https://github.com/arikyp/lmcodec/actions/workflows/ci.yml/badge.svg)](https://github.com/arikyp/lmcodec/actions/workflows/ci.yml)
+[![CI](https://github.com/arikyp/agentcapsule/actions/workflows/ci.yml/badge.svg)](https://github.com/arikyp/agentcapsule/actions/workflows/ci.yml)
 
 Agent Capsule Protocol V0 is an inspectable, verifiable artifact format for
 moving exact machine-readable payloads through agent and text-native channels:
@@ -70,21 +70,24 @@ python3 -m venv .venv
 .venv/bin/python -m pip install -e .
 ```
 
+This exposes the `agentcapsule` and `capsule` commands for Agent Capsules.
+`lmcodec` remains available as the research CLI.
+
 Create, inspect, verify, and unpack a Base64 capsule:
 
 ```bash
 printf 'agent handoff state\n' > payload.txt
-capsule pack payload.txt --out capsule.txt
-capsule inspect capsule.txt
-capsule verify capsule.txt
-capsule unpack capsule.txt --out decoded
+agentcapsule pack payload.txt --out capsule.txt
+agentcapsule inspect capsule.txt
+agentcapsule verify capsule.txt
+agentcapsule unpack capsule.txt --out decoded
 cmp payload.txt decoded/payload.txt
 ```
 
 Create a signed handoff capsule with explicit manifest metadata:
 
 ```bash
-CAPSULE_HMAC_KEY='shared secret' capsule pack payload.txt \
+CAPSULE_HMAC_KEY='shared secret' agentcapsule pack payload.txt \
   --out capsule.txt \
   --created-by agent-a \
   --task-id abc123 \
@@ -92,13 +95,13 @@ CAPSULE_HMAC_KEY='shared secret' capsule pack payload.txt \
   --requested-capability run_tests \
   --delivery-mode inline \
   --sign-key-env CAPSULE_HMAC_KEY
-CAPSULE_HMAC_KEY='shared secret' capsule verify capsule.txt --key-env CAPSULE_HMAC_KEY
+CAPSULE_HMAC_KEY='shared secret' agentcapsule verify capsule.txt --key-env CAPSULE_HMAC_KEY
 ```
 
 Emit a reference descriptor when the capsule will be stored out of band:
 
 ```bash
-capsule reference capsule.txt \
+agentcapsule reference capsule.txt \
   --uri https://example.test/capsules/capsule.txt \
   --json
 ```
@@ -158,23 +161,23 @@ cmp payload.bin recovered.bin
 Capsules are inspectable text artifacts that wrap exact machine-readable
 payloads with plaintext metadata, SHA256 verification, and safe unpack flows.
 The command examples below use Base64 unless a different backend is selected
-explicitly.
+explicitly. `capsule` remains an alias for `agentcapsule`.
 
 ```bash
-capsule pack examples/agent_capsule_demo/handoff --out capsule.txt
-capsule inspect capsule.txt
-capsule verify capsule.txt
-capsule unpack capsule.txt --out decoded
-capsule scan capsule.txt
-capsule codecs
-capsule inspect capsule.txt --json
-capsule pack payload.bin --codec lmcodec-ngram-v2 --model tests/fixtures/ngram_model_v1.json --out capsule.txt
-CAPSULE_HMAC_KEY='shared secret' capsule pack payload.bin --out capsule.txt --sign-key-env CAPSULE_HMAC_KEY
-capsule keys generate --private-key publisher.key --public-key publisher.pub
-capsule pack payload.bin --out capsule.txt --sign-ed25519-key publisher.key --signature-key-id publisher
-capsule verify capsule.txt --ed25519-public-key publisher.pub
-capsule verify capsule.txt --signature-registry trusted-keys.json
-capsule verify capsule.txt --audit-json
+agentcapsule pack examples/agent_capsule_demo/handoff --out capsule.txt
+agentcapsule inspect capsule.txt
+agentcapsule verify capsule.txt
+agentcapsule unpack capsule.txt --out decoded
+agentcapsule scan capsule.txt
+agentcapsule codecs
+agentcapsule inspect capsule.txt --json
+agentcapsule pack payload.bin --codec lmcodec-ngram-v2 --model tests/fixtures/ngram_model_v1.json --out capsule.txt
+CAPSULE_HMAC_KEY='shared secret' agentcapsule pack payload.bin --out capsule.txt --sign-key-env CAPSULE_HMAC_KEY
+agentcapsule keys generate --private-key publisher.key --public-key publisher.pub
+agentcapsule pack payload.bin --out capsule.txt --sign-ed25519-key publisher.key --signature-key-id publisher
+agentcapsule verify capsule.txt --ed25519-public-key publisher.pub
+agentcapsule verify capsule.txt --signature-registry trusted-keys.json
+agentcapsule verify capsule.txt --audit-json
 ```
 
 Core capsule, HMAC, base64, and LMCodec backends work with the default
@@ -212,7 +215,7 @@ For a static observability view over handoff evidence, see
 For the central trust registry direction, see
 [docs/AGENT_CAPSULE_CENTRAL_TRUST_REGISTRY.md](docs/AGENT_CAPSULE_CENTRAL_TRUST_REGISTRY.md).
 
-## LMCodec Architecture
+## LMCodec Research Architecture
 
 LMCodec has five core layers:
 

@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "lmcodec"
+name = "agentcapsule"
 version = "0.1.0"
-description = "Lossless byte transport through language-model-shaped text"
+description = "Agent Capsule Protocol with LMCodec research backends"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = []
@@ -23,17 +23,18 @@ classifiers = [
 ]
 
 [project.scripts]
-lmcodec = "lmcodec.cli:main"
+agentcapsule = "agentcapsule.cli:main"
 capsule = "agentcapsule.cli:main"
+lmcodec = "lmcodec.cli:main"
 
 [project.optional-dependencies]
 signing = ["cryptography>=46,<47"]
 
 [project.urls]
-Homepage = "https://github.com/arikyp/lmcodec"
-Repository = "https://github.com/arikyp/lmcodec"
-Issues = "https://github.com/arikyp/lmcodec/issues"
-Documentation = "https://github.com/arikyp/lmcodec/tree/main/docs"
+Homepage = "https://github.com/arikyp/agentcapsule"
+Repository = "https://github.com/arikyp/agentcapsule"
+Issues = "https://github.com/arikyp/agentcapsule/issues"
+Documentation = "https://github.com/arikyp/agentcapsule/tree/main/docs"
 
 [tool.setuptools.packages.find]
 where = ["src"]

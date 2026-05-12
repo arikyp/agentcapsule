@@ -12,7 +12,8 @@ From the repository root:
 python3 -m pip install -e .
 ```
 
-This exposes both `capsule` and `lmcodec` commands from `pyproject.toml`.
+This exposes `agentcapsule`, `capsule`, and `lmcodec` commands from
+`pyproject.toml`. `agentcapsule` is the primary Agent Capsule command.
 
 ## Pack And Verify A Capsule
 
@@ -25,27 +26,27 @@ printf 'agent handoff state\n' > /tmp/capsule-payload.txt
 Pack it with the primary Base64 path:
 
 ```bash
-capsule pack /tmp/capsule-payload.txt --out /tmp/capsule.txt
+agentcapsule pack /tmp/capsule-payload.txt --out /tmp/capsule.txt
 ```
 
 Inspect metadata before decode:
 
 ```bash
-capsule inspect /tmp/capsule.txt
+agentcapsule inspect /tmp/capsule.txt
 ```
 
 Verify and unpack:
 
 ```bash
-capsule verify /tmp/capsule.txt
-capsule unpack /tmp/capsule.txt --out /tmp/capsule-decoded
+agentcapsule verify /tmp/capsule.txt
+agentcapsule unpack /tmp/capsule.txt --out /tmp/capsule-decoded
 cmp /tmp/capsule-payload.txt /tmp/capsule-decoded/capsule-payload.txt
 ```
 
 ## Add Handoff Metadata
 
 ```bash
-capsule pack /tmp/capsule-payload.txt \
+agentcapsule pack /tmp/capsule-payload.txt \
   --out /tmp/agent-a-handoff.capsule.txt \
   --created-by agent-a \
   --task-id abc123 \
@@ -54,7 +55,7 @@ capsule pack /tmp/capsule-payload.txt \
   --policy-hint sandbox_required=true \
   --policy-hint network_egress=false \
   --delivery-mode inline
-capsule inspect /tmp/agent-a-handoff.capsule.txt --json
+agentcapsule inspect /tmp/agent-a-handoff.capsule.txt --json
 ```
 
 ## Delivery Modes
@@ -62,23 +63,23 @@ capsule inspect /tmp/agent-a-handoff.capsule.txt --json
 Inline delivery pastes the full capsule into the message body:
 
 ```bash
-capsule pack /tmp/capsule-payload.txt --out /tmp/inline.capsule.txt --delivery-mode inline
+agentcapsule pack /tmp/capsule-payload.txt --out /tmp/inline.capsule.txt --delivery-mode inline
 ```
 
 Attachment delivery sends the same capsule envelope as a file or blob:
 
 ```bash
-capsule pack /tmp/capsule-payload.txt --out /tmp/attachment.capsule.txt --delivery-mode attachment
+agentcapsule pack /tmp/capsule-payload.txt --out /tmp/attachment.capsule.txt --delivery-mode attachment
 ```
 
 Reference delivery sends a descriptor while the full capsule lives elsewhere:
 
 ```bash
-capsule pack /tmp/capsule-payload.txt \
+agentcapsule pack /tmp/capsule-payload.txt \
   --out /tmp/reference.capsule.txt \
   --delivery-mode reference \
   --delivery-uri https://example.test/capsules/reference.capsule.txt
-capsule reference /tmp/reference.capsule.txt \
+agentcapsule reference /tmp/reference.capsule.txt \
   --uri https://example.test/capsules/reference.capsule.txt \
   --json
 ```
@@ -89,11 +90,11 @@ payload hash, and signature. The descriptor is not authoritative.
 ## Sign A Capsule
 
 ```bash
-CAPSULE_HMAC_KEY='shared secret' capsule pack /tmp/capsule-payload.txt \
+CAPSULE_HMAC_KEY='shared secret' agentcapsule pack /tmp/capsule-payload.txt \
   --out /tmp/signed.capsule.txt \
   --sign-key-env CAPSULE_HMAC_KEY \
   --signature-key-id dev-shared-key
-CAPSULE_HMAC_KEY='shared secret' capsule verify /tmp/signed.capsule.txt --key-env CAPSULE_HMAC_KEY
+CAPSULE_HMAC_KEY='shared secret' agentcapsule verify /tmp/signed.capsule.txt --key-env CAPSULE_HMAC_KEY
 ```
 
 ## Advanced LMCodec Carrier
