@@ -152,6 +152,8 @@ summary, capsule, registry-trusted signature, sandbox unpack, and artifact
 comparison evidence.
 For enterprise policy tiers, see
 [docs/AGENT_HANDOFF_POLICY_MATRIX_V0.md](docs/AGENT_HANDOFF_POLICY_MATRIX_V0.md).
+For a static observability view over handoff evidence, see
+[docs/AGENT_HANDOFF_OBSERVABILITY_DASHBOARD_V0.md](docs/AGENT_HANDOFF_OBSERVABILITY_DASHBOARD_V0.md).
 For the central trust registry direction, see
 [docs/AGENT_CAPSULE_CENTRAL_TRUST_REGISTRY.md](docs/AGENT_CAPSULE_CENTRAL_TRUST_REGISTRY.md).
 
