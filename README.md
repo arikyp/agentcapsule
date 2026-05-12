@@ -304,58 +304,21 @@ Pinned Transformer fixture metrics for `bytes(range(256))` with
 
 ## Documentation
 
-- [docs/ALGORITHM.md](docs/ALGORITHM.md): core reversible mapping.
-- [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md): implementation
-  milestones and design notes.
-- [docs/V1_RELEASE.md](docs/V1_RELEASE.md): V1 checkpoint and pinned artifact
-  details.
-- [docs/LIMITATIONS.md](docs/LIMITATIONS.md): current boundaries and non-goals.
+- [docs/INSTALL.md](docs/INSTALL.md): install options including `pipx`.
 - [docs/QUICKSTART.md](docs/QUICKSTART.md): installed CLI usage.
-- [docs/BENCHMARKING.md](docs/BENCHMARKING.md): structured benchmark JSON.
-- [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md): bounded V2 experiment runner.
 - [docs/AGENT_CAPSULE_PROTOCOL_V0.md](docs/AGENT_CAPSULE_PROTOCOL_V0.md):
   Agent Capsule V0 envelope, backends, verification, and scan flow.
 - [docs/AGENT_CAPSULE_PRODUCT_BRIEF.md](docs/AGENT_CAPSULE_PRODUCT_BRIEF.md):
   product pivot brief and governance roadmap.
-- [docs/V2_BASELINE.md](docs/V2_BASELINE.md): V2 baseline metrics and first
-  candidate runs.
-- [docs/V2_EXPERIMENT_PROTOCOL.md](docs/V2_EXPERIMENT_PROTOCOL.md): V2
-  promotion gates and experiment rules.
-- [docs/V2_AUTOAGENT.md](docs/V2_AUTOAGENT.md): autoagent role and guardrails
-  for bounded V2 research.
-- [docs/V2_CANDIDATE_REPORT_TEMPLATE.md](docs/V2_CANDIDATE_REPORT_TEMPLATE.md):
-  report shape for reviewed V2 candidates.
-- [docs/V2_CHECKPOINT.md](docs/V2_CHECKPOINT.md): V2 research checkpoint,
-  matrix ranking, and merge recommendation.
-- [docs/V2_LARGE_PAYLOAD_REAL_CORPUS_STRESS.md](docs/V2_LARGE_PAYLOAD_REAL_CORPUS_STRESS.md):
-  next stress lane for larger payloads and real-ish corpora.
-- [docs/V2_LARGE_PAYLOAD_STRESS_RESULTS.md](docs/V2_LARGE_PAYLOAD_STRESS_RESULTS.md):
-  capped large-payload stress results and runtime finding.
-- [docs/V2_SIZE_LADDER.md](docs/V2_SIZE_LADDER.md): scaled payload ladder for
-  locating the current runtime knee.
-- [docs/V2_SIZE_LADDER_RESULTS.md](docs/V2_SIZE_LADDER_RESULTS.md): observed
-  32KB/64KB runtime boundary.
-- [docs/V2_SPRINT_1.md](docs/V2_SPRINT_1.md): first V2 candidate stress
-  sprint.
-- [docs/V2_SPRINT_2.md](docs/V2_SPRINT_2.md): first autoagent-safe
-  comparison sprint.
-- [docs/V2_SPRINT_3.md](docs/V2_SPRINT_3.md): order-3 candidate stress
-  sprint.
-- [docs/V2_CANDIDATE_ORDER3.md](docs/V2_CANDIDATE_ORDER3.md): current order-3
-  candidate report.
-- [docs/V2_CANDIDATE_ORDER3_SHAPED.md](docs/V2_CANDIDATE_ORDER3_SHAPED.md):
-  shaped order-3 candidate report.
-- [docs/V2_CANDIDATE_ORDER2_SAFETY.md](docs/V2_CANDIDATE_ORDER2_SAFETY.md):
-  order-2 safety fallback report.
-- [docs/V2_CANDIDATE_TRANSFORMER_FIXTURE.md](docs/V2_CANDIDATE_TRANSFORMER_FIXTURE.md):
-  Transformer fixture candidate report.
-- [docs/CARRIER_QUALITY.md](docs/CARRIER_QUALITY.md): carrier quality metrics
-  and trade-offs.
+- [docs/RELEASE_DISTRIBUTION.md](docs/RELEASE_DISTRIBUTION.md): release and
+  publishing path.
 - [docs/TESTING.md](docs/TESTING.md): stress/property test strategy.
+- [docs/archive/lmcodec-research/README.md](docs/archive/lmcodec-research/README.md):
+  archived LMCodec research notes and experiment docs.
 - [schemas/benchmark_result_v1.json](schemas/benchmark_result_v1.json):
   benchmark JSON schema contract.
 - [CHANGELOG.md](CHANGELOG.md): release notes.
-- [LICENSE](LICENSE): current license status.
+- [LICENSE](LICENSE): Apache-2.0 terms.
 
 ## Golden V1 Fixtures
 
