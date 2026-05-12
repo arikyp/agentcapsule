@@ -111,6 +111,8 @@ def build_envelope(
     manifest_files: list[dict[str, object]] | None = None,
     requested_capabilities: list[str] | None = None,
     policy_hints: dict[str, object] | None = None,
+    delivery_mode: str = "inline",
+    delivery_uri: str | None = None,
     extra_headers: dict[str, str] | None = None,
 ) -> CapsuleEnvelope:
     payload_sha256 = hashlib.sha256(payload).hexdigest()
@@ -128,6 +130,8 @@ def build_envelope(
                 files=manifest_files,
                 requested_capabilities=requested_capabilities,
                 policy_hints=policy_hints,
+                delivery_mode=delivery_mode,
+                delivery_uri=delivery_uri,
             )
         ),
         "payload_sha256": payload_sha256,

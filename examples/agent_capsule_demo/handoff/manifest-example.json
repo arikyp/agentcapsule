@@ -2,6 +2,9 @@
   "capsule_type": "agent_handoff",
   "created_by": "agent-a",
   "task_id": "demo-agent-handoff",
+  "delivery": {
+    "mode": "inline"
+  },
   "files": [
     {
       "path": "notes.md",
