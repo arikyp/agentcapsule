@@ -1,6 +1,6 @@
 # Testing
 
-LMCodec V1 relies on deterministic tests because the transport kernel is meant
+The research backend relies on deterministic tests because the transport kernel is meant
 to produce identical text for identical payload, model, and settings.
 
 The stress tests use fixed pseudo-random seeds from the Python standard library.
@@ -29,13 +29,13 @@ sh scripts/release_check.sh
 ```
 
 The Agent Capsule demo exercises pack, inspect, verify, unpack, scan JSON,
-codec registry output, `lmcodec-ngram-v2`, and HMAC signing.
+codec registry output, the experimental research backends, and HMAC signing.
 `scripts/demo_agent_capsule_ed25519.sh` additionally exercises the optional
-`lmcodec[signing]` Ed25519 prototype when `cryptography` is installed.
+`agentcapsule[signing]` Ed25519 prototype when `cryptography` is installed.
 `scripts/demo_agent_capsule_registry.sh` exercises local Ed25519 trust registry
 verification, rotated keys, revoked keys, and untrusted inline-key scan output.
 `scripts/demo_agent_capsule_audit.sh` emits allow, review, and block audit
-events, plus a registry-trusted signature event when `lmcodec[signing]` is
+events, plus a registry-trusted signature event when `agentcapsule[signing]` is
 installed.
 `scripts/demo_agent_to_agent_handoff.sh` runs the first local Agent A to Agent B
 handoff experiment, writes an `events.jsonl` trace, and evaluates the transcript

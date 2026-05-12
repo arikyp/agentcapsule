@@ -15,7 +15,7 @@ class AgentCapsuleDesignDocsTests(unittest.TestCase):
         self.assertIn("signature: ed25519", text)
         self.assertIn("signature_public_key_fingerprint", text)
         self.assertIn("agentcapsule.signing.signed_bytes", text)
-        self.assertIn("Keep core `lmcodec` dependency-free", text)
+        self.assertIn("Keep core `agentcapsule` dependency-free", text)
         self.assertIn("Current Prototype Scope", text)
 
     def test_agent_capsule_docs_link_ed25519_design(self) -> None:
@@ -36,7 +36,7 @@ class AgentCapsuleDesignDocsTests(unittest.TestCase):
         self.assertEqual(data["project"]["optional-dependencies"]["signing"], ["cryptography>=46,<47"])
         self.assertEqual(data["project"]["scripts"]["agentcapsule"], "agentcapsule.cli:main")
         self.assertEqual(data["project"]["scripts"]["capsule"], "agentcapsule.cli:main")
-        self.assertEqual(data["project"]["scripts"]["lmcodec"], "lmcodec.cli:main")
+        self.assertNotIn("lmcodec", data["project"]["scripts"])
 
     def test_audit_log_doc_is_linked(self) -> None:
         self.assertIn("AGENT_CAPSULE_AUDIT_LOG_V0.md", (ROOT / "README.md").read_text(encoding="utf-8"))

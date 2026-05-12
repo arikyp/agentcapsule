@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "agentcapsule"
 version = "0.1.0"
-description = "Agent Capsule Protocol with LMCodec research backends"
+description = "Agent Capsule Protocol for inspectable text-native artifact transfer"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = []
@@ -25,7 +25,6 @@ classifiers = [
 [project.scripts]
 agentcapsule = "agentcapsule.cli:main"
 capsule = "agentcapsule.cli:main"
-lmcodec = "lmcodec.cli:main"
 
 [project.optional-dependencies]
 signing = ["cryptography>=46,<47"]

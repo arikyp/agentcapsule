@@ -2,9 +2,9 @@
 
 Agent Capsule Protocol is the product. It defines an inspectable,
 verifiable artifact-transfer and governance primitive for agent and
-text-native channels. Base64 is the primary V0 payload path. LMCodec is an
-advanced research backend for language-model-shaped carriers, not a dependency
-for normal capsule use.
+text-native channels. Base64 is the primary V0 payload path. Experimental
+carrier-shaping backends exist for research, but they are not required for
+normal capsule use.
 
 ## Product Thesis
 
@@ -50,7 +50,7 @@ CapsuleGuard / AI text channel governance:
 
 Near-term protocol layers:
 
-- backend registry for `lmcodec-ngram-v2` and quality-shaped carriers,
+- backend registry for experimental quality-shaped carriers,
 - JSON policy loading,
 - smaller model reference modes for n-gram capsules when a local trust registry
   exists,

@@ -2,7 +2,7 @@
 
 Agent Capsules wrap exact machine-readable payloads in an inspectable envelope
 with metadata, SHA256 verification, optional signatures, and safe unpack flows.
-The default path is Base64. LMCodec carriers are advanced/research backends.
+The default path is Base64.
 
 ## Install
 
@@ -12,8 +12,8 @@ From the repository root:
 python3 -m pip install -e .
 ```
 
-This exposes `agentcapsule`, `capsule`, and `lmcodec` commands from
-`pyproject.toml`. `agentcapsule` is the primary Agent Capsule command.
+This exposes `agentcapsule` and `capsule` commands from `pyproject.toml`.
+`agentcapsule` is the primary Agent Capsule command.
 
 ## Pack And Verify A Capsule
 
@@ -95,49 +95,6 @@ CAPSULE_HMAC_KEY='shared secret' agentcapsule pack /tmp/capsule-payload.txt \
   --sign-key-env CAPSULE_HMAC_KEY \
   --signature-key-id dev-shared-key
 CAPSULE_HMAC_KEY='shared secret' agentcapsule verify /tmp/signed.capsule.txt --key-env CAPSULE_HMAC_KEY
-```
-
-## Advanced LMCodec Carrier
-
-The LMCodec CLI maps bytes into copy/paste-safe carrier text and decodes that
-text back to the exact original bytes. This is a research backend; start with
-Base64 capsules unless you specifically need carrier-shaping experiments.
-
-Create a binary sample:
-
-```bash
-python3 - <<'PY'
-from pathlib import Path
-Path("/tmp/lmcodec-payload.bin").write_bytes(bytes(range(256)))
-PY
-```
-
-Encode and decode with the stable fixed carrier:
-
-```bash
-lmcodec encode --in /tmp/lmcodec-payload.bin --out /tmp/lmcodec-message.txt --wrap 80
-lmcodec decode --in /tmp/lmcodec-message.txt --out /tmp/lmcodec-output.bin
-cmp /tmp/lmcodec-payload.bin /tmp/lmcodec-output.bin
-```
-
-The Transformer carrier is experimental and pinned as a V1 fixture:
-
-```bash
-lmcodec encode \
-  --model tests/fixtures/transformer_model_v1.json \
-  --in /tmp/lmcodec-payload.bin \
-  --out /tmp/lmcodec-transformer-message.txt \
-  --wrap 80 \
-  --shape-uniform-mix 0.80 \
-  --temperature 1.25 \
-  --max-steps 100000
-
-lmcodec decode \
-  --model tests/fixtures/transformer_model_v1.json \
-  --in /tmp/lmcodec-transformer-message.txt \
-  --out /tmp/lmcodec-transformer-output.bin
-
-cmp /tmp/lmcodec-payload.bin /tmp/lmcodec-transformer-output.bin
 ```
 
 ## Verify The Release

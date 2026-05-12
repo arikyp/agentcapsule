@@ -18,4 +18,4 @@ python3 -m py_compile \
   scripts/sweep_shaping.py \
   scripts/train_transformer_torch.py
 
-echo "LMCodec V1 verification ok"
+echo "Agent Capsule V1 verification ok"
