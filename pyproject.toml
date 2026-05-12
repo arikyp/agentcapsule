@@ -10,7 +10,17 @@ license = "Apache-2.0"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = []
-keywords = ["codec", "range-coding", "language-models", "deterministic", "transport"]
+keywords = [
+    "agents",
+    "ai-agents",
+    "artifact-transfer",
+    "protocol",
+    "security",
+    "provenance",
+    "signatures",
+    "base64",
+    "governance",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
