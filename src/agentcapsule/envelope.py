@@ -8,6 +8,14 @@ from datetime import UTC, datetime
 
 from agentcapsule.backends import get_backend
 from agentcapsule.errors import CapsuleParseError, CapsuleVerificationError
+from agentcapsule.manifest import (
+    CAPSULE_MANIFEST_HEADER,
+    DEFAULT_CAPSULE_TYPE,
+    build_capsule_manifest,
+    encode_capsule_manifest,
+    file_manifest_entry,
+    parse_capsule_manifest,
+)
 
 BEGIN_MARKER = "-----BEGIN AGENT CAPSULE-----"
 PAYLOAD_MARKER = "-----PAYLOAD-----"
@@ -32,6 +40,7 @@ HEADER_ORDER = (
     "capsule_version",
     "codec",
     "content_type",
+    "capsule_manifest",
     "lmcodec_backend_version",
     "lmcodec_model_type",
     "lmcodec_model_fingerprint",
@@ -73,6 +82,13 @@ class CapsuleEnvelope:
     def payload_sha256(self) -> str:
         return self.headers["payload_sha256"]
 
+    @property
+    def capsule_manifest(self) -> dict[str, object] | None:
+        value = self.headers.get(CAPSULE_MANIFEST_HEADER)
+        if value is None:
+            return None
+        return parse_capsule_manifest(value)
+
     def decode_payload(self) -> bytes:
         return get_backend(self.codec).decode(self.payload_text, headers=self.headers)
 
@@ -90,13 +106,31 @@ def build_envelope(
     created_by: str = "local",
     created_at: str | None = None,
     policy: str = "inspect-before-use",
+    capsule_type: str = DEFAULT_CAPSULE_TYPE,
+    task_id: str = "",
+    manifest_files: list[dict[str, object]] | None = None,
+    requested_capabilities: list[str] | None = None,
+    policy_hints: dict[str, object] | None = None,
     extra_headers: dict[str, str] | None = None,
 ) -> CapsuleEnvelope:
+    payload_sha256 = hashlib.sha256(payload).hexdigest()
+    if manifest_files is None:
+        manifest_files = [file_manifest_entry(filename or "payload.bin", payload)]
     headers = {
         "capsule_version": CAPSULE_VERSION,
         "codec": codec,
         "content_type": content_type,
-        "payload_sha256": hashlib.sha256(payload).hexdigest(),
+        "capsule_manifest": encode_capsule_manifest(
+            build_capsule_manifest(
+                capsule_type=capsule_type,
+                created_by=created_by,
+                task_id=task_id,
+                files=manifest_files,
+                requested_capabilities=requested_capabilities,
+                policy_hints=policy_hints,
+            )
+        ),
+        "payload_sha256": payload_sha256,
         "compression": "none",
         "encryption": "none",
         "signature": "none",
@@ -108,6 +142,8 @@ def build_envelope(
         headers.update(extra_headers)
     if filename:
         headers["filename"] = filename
+    if CAPSULE_MANIFEST_HEADER in headers:
+        parse_capsule_manifest(headers[CAPSULE_MANIFEST_HEADER])
     payload_text = get_backend(codec).encode(payload, headers=headers)
     return CapsuleEnvelope(headers=headers, payload_text=payload_text)
 
@@ -197,4 +233,6 @@ def _parse_headers(header_text: str) -> dict[str, str]:
         int(headers["payload_sha256"], 16)
     except ValueError as exc:
         raise CapsuleParseError("invalid payload SHA256") from exc
+    if CAPSULE_MANIFEST_HEADER in headers:
+        parse_capsule_manifest(headers[CAPSULE_MANIFEST_HEADER])
     return headers

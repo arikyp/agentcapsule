@@ -193,6 +193,51 @@ class AgentCapsuleCliTests(unittest.TestCase):
             self.assertEqual(payload["payload_bytes"], 7)
             self.assertEqual(payload["payload_sha256"], envelope.payload_sha256)
 
+    def test_pack_inspect_json_includes_capsule_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "patch.diff"
+            capsule = root / "capsule.txt"
+            source.write_text("diff", encoding="utf-8")
+
+            self.assertEqual(
+                _run_cli(
+                    [
+                        "pack",
+                        str(source),
+                        "--out",
+                        str(capsule),
+                        "--created-by",
+                        "agent-a",
+                        "--task-id",
+                        "abc123",
+                        "--requested-capability",
+                        "read_files",
+                        "--requested-capability",
+                        "run_tests",
+                        "--policy-hint",
+                        "sandbox_required=true",
+                        "--policy-hint",
+                        "network_egress=false",
+                    ]
+                ),
+                0,
+            )
+
+            status, stdout, stderr = _capture_cli(["inspect", str(capsule), "--json"])
+
+            self.assertEqual(status, 0)
+            self.assertEqual(stderr, "")
+            payload = json.loads(stdout)
+            manifest = payload["capsule_manifest"]
+            self.assertEqual(manifest["capsule_type"], "agent_handoff")
+            self.assertEqual(manifest["created_by"], "agent-a")
+            self.assertEqual(manifest["task_id"], "abc123")
+            self.assertEqual(manifest["requested_capabilities"], ["read_files", "run_tests"])
+            self.assertEqual(manifest["policy_hints"], {"network_egress": False, "sandbox_required": True})
+            self.assertEqual(manifest["files"][0]["path"], "patch.diff")
+            self.assertEqual(manifest["files"][0]["bytes"], 4)
+
     def test_inspect_json_output(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             capsule = Path(tmp) / "capsule.txt"
