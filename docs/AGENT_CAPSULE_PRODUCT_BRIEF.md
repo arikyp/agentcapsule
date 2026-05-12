@@ -1,9 +1,10 @@
 # Agent Capsule Product Brief
 
-LMCodec is the engine, not the product. It proves deterministic byte-to-text
-transport through language-model-shaped carriers. Agent Capsule Protocol is the
-product layer that turns that engine into an inspectable artifact-transfer and
-governance primitive.
+Agent Capsule Protocol is the product. It defines an inspectable,
+verifiable artifact-transfer and governance primitive for agent and
+text-native channels. Base64 is the primary V0 payload path. LMCodec is an
+advanced research backend for language-model-shaped carriers, not a dependency
+for normal capsule use.
 
 ## Product Thesis
 
@@ -69,7 +70,9 @@ Later product layers:
 - Transformer capsule backend when it is practically stronger.
 
 V0 intentionally stays small: exact artifact to inspectable text capsule,
-verify, apply local policy, and unpack safely.
+verify, apply local policy, and unpack safely. The default path should feel
+boring: Base64 payload text, SHA256, explicit metadata, optional signatures,
+and sandbox unpacking.
 
 Important distinction: a valid Ed25519 signature proves the capsule was signed
 by the corresponding public key. A trusted signature means that key also passed

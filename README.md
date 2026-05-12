@@ -1,21 +1,33 @@
-# LMCodec
+# Agent Capsule Protocol / LMCodec
 
 [![CI](https://github.com/arikyp/lmcodec/actions/workflows/ci.yml/badge.svg)](https://github.com/arikyp/lmcodec/actions/workflows/ci.yml)
 
-LMCodec is an experimental deterministic codec that maps arbitrary bytes into
-copy/paste-safe text using language-model probability distributions as the
-carrier shape.
+Agent Capsule Protocol V0 is an inspectable, verifiable artifact format for
+moving exact machine-readable payloads through agent and text-native channels:
+chat, tickets, prompts, email, GitHub issues, A2A messages, MIME attachments,
+and agent traces.
 
-The codec uses a language model as the probability source and a deterministic
-range coder as the reversible bit-to-symbol mapping layer. Decode repeats the
-same model, shaping, and quantization steps to recover the original framed
-payload bytes.
+The default capsule path is plain Base64 plus metadata, SHA256 verification,
+optional signatures, local policy checks, and sandbox unpacking. LMCodec remains
+available as an advanced research backend for language-model-shaped carrier
+text; it is not required for normal capsule use.
 
 ## Current Status
 
-LMCodec V1 is a research prototype.
+Agent Capsule V0 is the product-facing layer in this repository.
 
-- The fixed 64-symbol carrier is the stable default path.
+- Base64 capsules are the primary stable path.
+- Capsules can be delivered inline, as attachments, or by reference descriptor.
+- Directory bundles are deterministic JSON with per-file SHA256 and byte
+  counts.
+- HMAC-SHA256 and optional Ed25519 signatures are supported for authenticity
+  experiments.
+- Local policy, scan, audit, and trust-registry flows are implemented.
+- Runtime Base64 capsule encode/decode is dependency-free Python.
+
+LMCodec V1 is a research prototype behind that layer.
+
+- The fixed 64-symbol carrier is the stable LMCodec research path.
 - The order-1 n-gram carrier is experimental, deterministic, and pinned as a
   V1 fixture.
 - The Transformer-style carrier is experimental, deterministic, and pinned as a
@@ -25,6 +37,11 @@ LMCodec V1 is a research prototype.
 
 ## What Works
 
+- Base64 capsule pack, inspect, verify, scan, and unpack flows.
+- Signed capsule verification with HMAC and optional Ed25519.
+- Agent handoff manifests with file inventory, requested capabilities, policy
+  hints, and delivery mode.
+- Inline, attachment, and reference delivery metadata.
 - Byte-perfect encode/decode roundtrip for the tested payload sizes and demos.
 - Deterministic output for identical payload, model, and settings.
 - Model fingerprint checks before decode.
@@ -35,14 +52,16 @@ LMCodec V1 is a research prototype.
 
 ## What Does Not Yet Work
 
+- Production identity, central trust registry, or remote policy service.
+- Encryption or privacy.
+- Large-file distribution as an inline capsule.
 - Semantically meaningful prose generation.
-- Production privacy or encryption.
 - Steganography-grade secrecy.
 - Compression superiority over base64.
 - Large-file archival confidence.
 - GPU-scale model training in the runtime path.
 
-## Quickstart
+## Agent Capsule Quickstart
 
 Use a virtual environment for local development:
 
@@ -51,7 +70,44 @@ python3 -m venv .venv
 .venv/bin/python -m pip install -e .
 ```
 
-Encode and decode a file with the default fixed carrier:
+Create, inspect, verify, and unpack a Base64 capsule:
+
+```bash
+printf 'agent handoff state\n' > payload.txt
+capsule pack payload.txt --out capsule.txt
+capsule inspect capsule.txt
+capsule verify capsule.txt
+capsule unpack capsule.txt --out decoded
+cmp payload.txt decoded/payload.txt
+```
+
+Create a signed handoff capsule with explicit manifest metadata:
+
+```bash
+CAPSULE_HMAC_KEY='shared secret' capsule pack payload.txt \
+  --out capsule.txt \
+  --created-by agent-a \
+  --task-id abc123 \
+  --requested-capability read_files \
+  --requested-capability run_tests \
+  --delivery-mode inline \
+  --sign-key-env CAPSULE_HMAC_KEY
+CAPSULE_HMAC_KEY='shared secret' capsule verify capsule.txt --key-env CAPSULE_HMAC_KEY
+```
+
+Emit a reference descriptor when the capsule will be stored out of band:
+
+```bash
+capsule reference capsule.txt \
+  --uri https://example.test/capsules/capsule.txt \
+  --json
+```
+
+For a shorter developer path, see [docs/QUICKSTART.md](docs/QUICKSTART.md).
+
+## LMCodec Research Quickstart
+
+Encode and decode a file with the default fixed LMCodec carrier:
 
 ```bash
 PYTHONPATH=src python3 -m lmcodec.cli encode --in payload.bin --out message.txt --wrap 80
@@ -97,13 +153,12 @@ PYTHONPATH=src python3 -m lmcodec.cli decode \
 cmp payload.bin recovered.bin
 ```
 
-## Agent Capsule Protocol Pivot
+## Agent Capsule Commands
 
-LMCodec now also has an early product layer: Agent Capsule Protocol V0.
 Capsules are inspectable text artifacts that wrap exact machine-readable
 payloads with plaintext metadata, SHA256 verification, and safe unpack flows.
-LMCodec remains a codec backend; Agent Capsules are the artifact-transfer and
-governance layer.
+The command examples below use Base64 unless a different backend is selected
+explicitly.
 
 ```bash
 capsule pack examples/agent_capsule_demo/handoff --out capsule.txt
@@ -157,7 +212,7 @@ For a static observability view over handoff evidence, see
 For the central trust registry direction, see
 [docs/AGENT_CAPSULE_CENTRAL_TRUST_REGISTRY.md](docs/AGENT_CAPSULE_CENTRAL_TRUST_REGISTRY.md).
 
-## Architecture
+## LMCodec Architecture
 
 LMCodec has five core layers:
 

@@ -19,6 +19,50 @@ Agent Capsules carry both readable metadata and an exact encoded payload. A
 receiver can inspect metadata first, verify the payload hash, decode into a
 sandbox directory, and apply local policy before using the content.
 
+## Public Spec Orientation
+
+Agent Capsule is the format. Base64 is the primary V0 payload text codec.
+LMCodec backends are optional advanced/research codecs for carrier-shaping
+experiments. A conforming V0 receiver should implement the Base64 capsule path
+first: parse the envelope, inspect metadata, verify SHA256, apply local policy,
+decode the payload, and unpack only into a caller-selected sandbox directory.
+
+## Envelope Vs Manifest Vs Delivery Mode
+
+These terms are separate on purpose:
+
+- Envelope: the outer text artifact with boundary markers, protocol headers,
+  encoded payload text, payload hash, signature metadata, and codec selection.
+- Manifest: a canonical JSON header inside the envelope. It describes handoff
+  intent, producer, task id, decoded file inventory, requested receiver
+  capabilities, policy hints, and delivery metadata.
+- Delivery mode: a manifest claim about how the capsule reaches the receiver:
+  inline body text, attached file/blob, or reference descriptor plus URI.
+
+The envelope is what gets parsed and signed. The manifest is what gets
+inspected before decode. The delivery mode tells the receiving channel where
+the envelope bytes are expected to appear.
+
+## Relationship To MCP / A2A / ACP / MIME / IPFS
+
+Agent Capsule is not a replacement for agent protocols, transport protocols, or
+storage systems. It is a portable artifact format that can travel through them.
+
+- MCP: an MCP tool or resource can produce, receive, inspect, verify, or unpack
+  a capsule. The capsule is the artifact; MCP is one possible tool interface.
+- A2A: an agent-to-agent message can carry an inline capsule, attach a capsule
+  file/blob, or carry a reference descriptor.
+- ACP-style agent protocols: Agent Capsule provides the byte-exact handoff
+  artifact and verification rules that an agent communication protocol can
+  embed or reference.
+- MIME/email: a capsule can be pasted into a text part or attached as a
+  `text/plain` or application-specific blob.
+- GitHub/issues/PRs: a capsule can appear inline in a comment, as an uploaded
+  artifact, or as a reference descriptor in an audit trail.
+- IPFS/object stores/S3-like storage: a reference descriptor can point to
+  content-addressed or location-addressed storage, but receivers still verify
+  `capsule_sha256`, payload SHA256, and signatures from the fetched capsule.
+
 ## Envelope Format
 
 ```text
@@ -140,6 +184,12 @@ A compact reference descriptor has this shape:
 }
 ```
 
+The reference descriptor is not authoritative. Receivers must fetch the full
+capsule, verify `capsule_sha256` over the fetched envelope bytes, then verify
+the capsule payload hash and signature from the fetched capsule. Signature
+fields in the descriptor are hints for routing, trust lookup, and preflight
+display only.
+
 The local CLI can emit this descriptor:
 
 ```bash
@@ -150,14 +200,15 @@ capsule reference agent-a-handoff.capsule.txt \
 
 ## Backend Model
 
-V0 includes three dependency-free backends:
+V0 includes one primary backend plus two advanced LMCodec research backends:
 
-- `base64`: stable interoperability baseline.
-- `lmcodec-fixed`: LMCodec default fixed carrier wrapped as a capsule payload
-  backend.
-- `lmcodec-ngram-v2`: LMCodec n-gram backend with explicit model metadata in
-  the capsule header. V0 embeds canonical n-gram model JSON as base64 metadata
-  and records model type, fingerprint, SHA256, order, and uniform mix.
+- `base64`: stable interoperability baseline and recommended default.
+- `lmcodec-fixed`: advanced LMCodec fixed carrier wrapped as a capsule payload
+  backend for deterministic carrier-shaping experiments.
+- `lmcodec-ngram-v2`: advanced LMCodec n-gram backend with explicit model
+  metadata in the capsule header. V0 embeds canonical n-gram model JSON as
+  base64 metadata and records model type, fingerprint, SHA256, order, and
+  uniform mix.
 
 The local codec registry is inspectable:
 
@@ -190,6 +241,28 @@ Directories are stored as deterministic JSON bundles with content type
 size, SHA256, and base64 file contents. Paths are sorted deterministically.
 The capsule manifest repeats the relative path, SHA256, and byte count so a
 receiver can inspect handoff scope before decoding the payload.
+
+## Size Guidance
+
+V0 is optimized for small to medium handoff artifacts, not bulk data transfer.
+
+- Inline capsules: best for small payloads that humans or agents can tolerate
+  in a message body. Keep inline capsules small enough for the target channel's
+  message, token, and moderation limits.
+- Attachment capsules: preferred for larger bundles that still need to travel
+  with the message. Receivers should enforce local `max_payload_bytes` policy.
+- Reference descriptors: preferred when capsule bytes should live in object
+  storage, a repository artifact, IPFS, or another durable location. The
+  descriptor must include a capsule hash; the fetched capsule remains
+  authoritative.
+- Large files: do not inline raw large files. Store large data externally and
+  use the capsule for manifests, patches, task state, checksums, and policy
+  evidence.
+
+Base64 expands payload bytes by about one third before envelope overhead.
+Directory bundles add JSON field names plus per-file base64 content. LMCodec
+research carriers are generally larger and slower than Base64; use them only
+when carrier-shaping is the experiment.
 
 ## Security Model
 
@@ -306,12 +379,32 @@ For strict public-key channels, require Ed25519 plus a local registry:
 
 ## CLI Examples
 
+Base64 is the primary V0 path:
+
 ```bash
-capsule pack examples/agent_capsule_demo/handoff --out capsule.txt
+capsule pack payload.bin --out capsule.txt
 capsule inspect capsule.txt
 capsule verify capsule.txt
 capsule unpack capsule.txt --out decoded
+```
+
+Pack a directory handoff with manifest metadata:
+
+```bash
+capsule pack examples/agent_capsule_demo/handoff \
+  --out capsule.txt \
+  --created-by agent-a \
+  --task-id abc123 \
+  --requested-capability read_files \
+  --requested-capability run_tests \
+  --policy-hint sandbox_required=true \
+  --policy-hint network_egress=false
 capsule scan capsule.txt
+```
+
+Emit machine-readable output for agents and governance logs:
+
+```bash
 capsule codecs
 capsule verify capsule.txt --policy examples/agent_capsule_demo/policy-strict.json
 capsule inspect capsule.txt --json
@@ -410,6 +503,71 @@ The local registry format is:
   ]
 }
 ```
+
+## Developer Quickstart
+
+For local development:
+
+```bash
+python3 -m pip install -e .
+printf 'agent handoff state\n' > payload.txt
+capsule pack payload.txt --out capsule.txt
+capsule inspect capsule.txt --json
+capsule verify capsule.txt
+capsule unpack capsule.txt --out decoded
+cmp payload.txt decoded/payload.txt
+```
+
+For signed local testing:
+
+```bash
+CAPSULE_HMAC_KEY='shared secret' capsule pack payload.txt \
+  --out signed.capsule.txt \
+  --sign-key-env CAPSULE_HMAC_KEY \
+  --signature-key-id dev-shared-key
+CAPSULE_HMAC_KEY='shared secret' capsule verify signed.capsule.txt --key-env CAPSULE_HMAC_KEY
+```
+
+For reference-mode testing:
+
+```bash
+capsule pack payload.txt \
+  --out reference.capsule.txt \
+  --delivery-mode reference \
+  --delivery-uri https://example.test/capsules/reference.capsule.txt
+capsule reference reference.capsule.txt \
+  --uri https://example.test/capsules/reference.capsule.txt \
+  --json
+```
+
+## Objection Handling
+
+Why not just Base64?
+
+Base64 is the default capsule codec. Agent Capsule adds the missing operating
+contract around it: inspectable metadata, payload hash, optional signatures,
+manifest file inventory, delivery mode, local policy, audit events, and safe
+unpack semantics.
+
+Why not just MCP?
+
+MCP defines a tool/resource interface. It does not by itself define a portable,
+signed, byte-exact artifact format that can also survive email, GitHub, tickets,
+or other text channels. MCP can carry Agent Capsules.
+
+Why not just S3 or another object store?
+
+Object stores solve location and durability. They do not provide a standard
+agent handoff envelope, manifest, local policy flow, or channel-independent
+audit evidence. Reference delivery can point to object storage while still
+requiring capsule hash and signature verification.
+
+Why not just a Git patch?
+
+Git patches are excellent for source changes. Agent Capsules can carry patches,
+but also configs, task state, tool inputs, multi-file bundles, policy hints, and
+signature/trust metadata. Capsules are a general handoff container, not a patch
+format replacement.
 
 For the full V0 security posture, see
 [AGENT_CAPSULE_THREAT_MODEL.md](AGENT_CAPSULE_THREAT_MODEL.md).
