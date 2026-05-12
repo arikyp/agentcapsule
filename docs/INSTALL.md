@@ -31,6 +31,9 @@ If the project is published to PyPI, the same flow becomes:
 pipx install agentcapsule
 ```
 
+This is the intended public developer install path after the first PyPI
+release.
+
 ## What To Verify After Install
 
 ```bash

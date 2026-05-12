@@ -18,6 +18,12 @@ This document tracks the public launch path for Agent Capsule.
   pipeline.
 - Link back to the changelog, install docs, and protocol docs.
 
+Current automation:
+
+- `.github/workflows/release-artifacts.yml` builds `sdist`, `wheel`, and
+  `SHA256SUMS.txt` on `v*` tags and uploads them to GitHub Releases.
+- `scripts/build_release_artifacts.sh` is the shared local/CI build entrypoint.
+
 ## PyPI Publishing Checklist
 
 - Confirm the package name is `agentcapsule`.
@@ -27,6 +33,13 @@ This document tracks the public launch path for Agent Capsule.
 - Confirm the published metadata does not advertise experimental backends as
   part of the main install.
 - Confirm the license file is committed before the first public upload.
+
+Current automation:
+
+- `.github/workflows/pypi-publish.yml` builds distributions and publishes with
+  `pypa/gh-action-pypi-publish` using GitHub OIDC trusted publishing.
+- Configure a PyPI trusted publisher for this repository before enabling public
+  release tags.
 
 ## Binary Distribution Plan
 
@@ -38,8 +51,16 @@ Candidate artifacts:
 
 - source tarball
 - wheel files
-- platform-specific command-line bundles, if they are added later
+- platform-specific command-line bundles for `agentcapsule` and `capsule`, if
+  added later
 - checksum manifest for downloaded artifacts
+
+Recommended binary packaging phases:
+
+1. Phase 1 (now): publish `sdist` + `wheel` + checksums.
+2. Phase 2: add platform bundles via PyInstaller or equivalent for
+   Linux/macOS/Windows, then attach to GitHub Releases.
+3. Phase 3: add signing/attestation metadata for release artifacts.
 
 The binary release format is intentionally separate from the protocol format.
 Agent Capsule is a transport artifact; the release bundle is just one way to
