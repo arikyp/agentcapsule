@@ -8,9 +8,9 @@ chat, tickets, prompts, email, GitHub issues, A2A messages, MIME attachments,
 and agent traces.
 
 The default capsule path is plain Base64 plus metadata, SHA256 verification,
-optional signatures, local policy checks, and sandbox unpacking. LMCodec remains
-available as an advanced research backend for language-model-shaped carrier
-text; it is not required for normal capsule use.
+optional signatures, local policy checks, and sandbox unpacking. An experimental
+carrier-shaping backend exists for research, but it is not required for normal
+capsule use.
 
 ## Current Status
 
@@ -24,16 +24,6 @@ Agent Capsule V0 is the product-facing layer in this repository.
   experiments.
 - Local policy, scan, audit, and trust-registry flows are implemented.
 - Runtime Base64 capsule encode/decode is dependency-free Python.
-
-LMCodec V1 is a research prototype behind that layer.
-
-- The fixed 64-symbol carrier is the stable LMCodec research path.
-- The order-1 n-gram carrier is experimental, deterministic, and pinned as a
-  V1 fixture.
-- The Transformer-style carrier is experimental, deterministic, and pinned as a
-  V1 fixture.
-- Golden fixtures are committed for fixed, n-gram, and Transformer carriers.
-- Runtime encode/decode is dependency-free Python.
 
 ## What Works
 
@@ -71,7 +61,6 @@ python3 -m venv .venv
 ```
 
 This exposes the `agentcapsule` and `capsule` commands for Agent Capsules.
-`lmcodec` remains available as the research CLI.
 
 Create, inspect, verify, and unpack a Base64 capsule:
 
@@ -107,54 +96,9 @@ agentcapsule reference capsule.txt \
 ```
 
 For a shorter developer path, see [docs/QUICKSTART.md](docs/QUICKSTART.md).
-
-## LMCodec Research Quickstart
-
-Encode and decode a file with the default fixed LMCodec carrier:
-
-```bash
-PYTHONPATH=src python3 -m lmcodec.cli encode --in payload.bin --out message.txt --wrap 80
-PYTHONPATH=src python3 -m lmcodec.cli decode --in message.txt --out recovered.bin
-cmp payload.bin recovered.bin
-```
-
-Train and use a deterministic order-1 n-gram carrier:
-
-```bash
-PYTHONPATH=src python3 -m lmcodec.cli train \
-  --data examples/carrier_train_v1.txt \
-  --out ngram.json \
-  --order 1 \
-  --uniform-mix 0.75
-PYTHONPATH=src python3 -m lmcodec.cli encode \
-  --model ngram.json \
-  --in payload.bin \
-  --out message.txt \
-  --wrap 80
-PYTHONPATH=src python3 -m lmcodec.cli decode \
-  --model ngram.json \
-  --in message.txt \
-  --out recovered.bin
-cmp payload.bin recovered.bin
-```
-
-Use the pinned experimental Transformer fixture:
-
-```bash
-PYTHONPATH=src python3 -m lmcodec.cli encode \
-  --model tests/fixtures/transformer_model_v1.json \
-  --in payload.bin \
-  --out message.txt \
-  --wrap 80 \
-  --shape-uniform-mix 0.80 \
-  --temperature 1.25 \
-  --max-steps 100000
-PYTHONPATH=src python3 -m lmcodec.cli decode \
-  --model tests/fixtures/transformer_model_v1.json \
-  --in message.txt \
-  --out recovered.bin
-cmp payload.bin recovered.bin
-```
+For installation packaging, see [docs/INSTALL.md](docs/INSTALL.md).
+For release and distribution planning, see
+[docs/RELEASE_DISTRIBUTION.md](docs/RELEASE_DISTRIBUTION.md).
 
 ## Agent Capsule Commands
 
@@ -171,7 +115,6 @@ agentcapsule unpack capsule.txt --out decoded
 agentcapsule scan capsule.txt
 agentcapsule codecs
 agentcapsule inspect capsule.txt --json
-agentcapsule pack payload.bin --codec lmcodec-ngram-v2 --model tests/fixtures/ngram_model_v1.json --out capsule.txt
 CAPSULE_HMAC_KEY='shared secret' agentcapsule pack payload.bin --out capsule.txt --sign-key-env CAPSULE_HMAC_KEY
 agentcapsule keys generate --private-key publisher.key --public-key publisher.pub
 agentcapsule pack payload.bin --out capsule.txt --sign-ed25519-key publisher.key --signature-key-id publisher
@@ -180,7 +123,7 @@ agentcapsule verify capsule.txt --signature-registry trusted-keys.json
 agentcapsule verify capsule.txt --audit-json
 ```
 
-Core capsule, HMAC, base64, and LMCodec backends work with the default
+Core capsule, HMAC, and base64 workflows work with the default
 dependency-free install. Ed25519 demos/tests require the optional signing extra:
 
 ```bash
@@ -215,9 +158,12 @@ For a static observability view over handoff evidence, see
 For the central trust registry direction, see
 [docs/AGENT_CAPSULE_CENTRAL_TRUST_REGISTRY.md](docs/AGENT_CAPSULE_CENTRAL_TRUST_REGISTRY.md).
 
-## LMCodec Research Architecture
+## Research Backends
 
-LMCodec has five core layers:
+The repository also contains experimental carrier-shaping backends used for
+research and regression coverage.
+
+The research path has five core layers:
 
 - Frame: wraps the payload as `magic || payload_len || crc32 || payload`.
 - Range coder: provides the reversible bit-to-symbol mapping.
@@ -254,8 +200,8 @@ armoured text
 
 The stopping condition is intentionally conservative. Range decoders use
 lookahead, so encode does not stop based on a naive "all bits consumed" rule.
-Instead, LMCodec keeps a mirror range encoder and stops only when its finalized
-preview has the framed payload bits as a prefix.
+Instead, the research carrier keeps a mirror range encoder and stops only when
+its finalized preview has the framed payload bits as a prefix.
 
 ## Verification
 
@@ -339,7 +285,7 @@ guardrails for keeping model distributions usable by the range coder; they are
 not a claim of natural language quality.
 
 Greedy previews are useful diagnostics, but they are not representative of
-encoded carrier text. The actual LMCodec carrier is selected by payload bits
+encoded carrier text. The actual carrier is selected by payload bits
 through the range coder under the model distribution.
 
 Current demo metrics for `bytes(range(256))`:

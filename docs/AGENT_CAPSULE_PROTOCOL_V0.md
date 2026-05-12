@@ -22,7 +22,7 @@ sandbox directory, and apply local policy before using the content.
 ## Public Spec Orientation
 
 Agent Capsule is the format. Base64 is the primary V0 payload text codec.
-LMCodec backends are optional advanced/research codecs for carrier-shaping
+Experimental research codecs are optional and only needed for carrier-shaping
 experiments. A conforming V0 receiver should implement the Base64 capsule path
 first: parse the envelope, inspect metadata, verify SHA256, apply local policy,
 decode the payload, and unpack only into a caller-selected sandbox directory.
@@ -200,12 +200,12 @@ capsule reference agent-a-handoff.capsule.txt \
 
 ## Backend Model
 
-V0 includes one primary backend plus two advanced LMCodec research backends:
+V0 includes one primary backend plus two experimental research backends:
 
 - `base64`: stable interoperability baseline and recommended default.
-- `lmcodec-fixed`: advanced LMCodec fixed carrier wrapped as a capsule payload
-  backend for deterministic carrier-shaping experiments.
-- `lmcodec-ngram-v2`: advanced LMCodec n-gram backend with explicit model
+- `lmcodec-fixed`: fixed research carrier wrapped as a capsule payload backend
+  for deterministic carrier-shaping experiments.
+- `lmcodec-ngram-v2`: n-gram research backend with explicit model
   metadata in the capsule header. V0 embeds canonical n-gram model JSON as
   base64 metadata and records model type, fingerprint, SHA256, order, and
   uniform mix.
@@ -223,7 +223,7 @@ Transformer carriers without changing the envelope model.
 
 `lmcodec-ngram-v2` currently uses inline model mode. The capsule embeds the
 canonical n-gram model JSON in plaintext metadata as base64 and verifies it with
-both SHA256 and the LMCodec model fingerprint. This is portable,
+both SHA256 and the research model fingerprint. This is portable,
 self-contained, and useful for demos, offline handoff, and exact reproduction.
 
 Future registry model mode should replace bulky inline model metadata with a
@@ -260,9 +260,9 @@ V0 is optimized for small to medium handoff artifacts, not bulk data transfer.
   evidence.
 
 Base64 expands payload bytes by about one third before envelope overhead.
-Directory bundles add JSON field names plus per-file base64 content. LMCodec
-research carriers are generally larger and slower than Base64; use them only
-when carrier-shaping is the experiment.
+Directory bundles add JSON field names plus per-file base64 content. Research
+carriers are generally larger and slower than Base64; use them only when
+carrier-shaping is the experiment.
 
 ## Security Model
 
@@ -272,7 +272,7 @@ V0 proves the primitive, not the full security product.
 - HMAC-SHA256 can authenticate a capsule when sender and receiver already share
   a secret key.
 - HMAC-SHA256 does not provide public identity or non-repudiation.
-- Ed25519 can verify public-key signatures when `lmcodec[signing]` is
+- Ed25519 can verify public-key signatures when `agentcapsule[signing]` is
   installed.
 - Local Ed25519 registries can mark keys as trusted or revoked. They are local
   JSON files, not remote identity services.
@@ -288,7 +288,8 @@ Non-goals for V0:
 - Central policy service.
 - DLP or SaaS integrations.
 - Default runtime dependencies beyond the Python standard library and existing
-  LMCodec code. Ed25519 is available through the optional `signing` extra.
+  research backend code. Ed25519 is available through the optional `signing`
+  extra.
 
 Install the optional signing extra before running Ed25519 demos/tests:
 
@@ -418,14 +419,14 @@ sh scripts/demo_agent_capsule_audit.sh
 The `--json` forms are intended for agent traces, CI checks, and governance
 logs. Human-readable output remains the default.
 
-Use the LMCodec fixed backend:
+Use the fixed research backend:
 
 ```bash
 capsule pack payload.bin --codec lmcodec-fixed --out capsule.txt
 capsule verify capsule.txt
 ```
 
-Use the self-contained LMCodec n-gram backend:
+Use the self-contained n-gram research backend:
 
 ```bash
 capsule pack payload.bin \

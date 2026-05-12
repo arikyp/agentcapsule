@@ -192,7 +192,7 @@ Candidate packages:
 
 Recommendation:
 
-1. Keep core `lmcodec` dependency-free.
+1. Keep core `agentcapsule` dependency-free.
 2. Implement Ed25519 behind an optional extra, for example:
 
    ```toml
@@ -279,7 +279,7 @@ Implementation branch tests should cover:
 
 Implemented scope:
 
-- optional `lmcodec[signing]` dependency,
+- optional `agentcapsule[signing]` dependency,
 - local base64 raw Ed25519 private/public key files,
 - `capsule keys generate`,
 - `capsule keys fingerprint`,
