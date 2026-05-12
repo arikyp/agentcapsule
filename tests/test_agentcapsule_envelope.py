@@ -35,6 +35,7 @@ class AgentCapsuleEnvelopeTests(unittest.TestCase):
         self.assertEqual(manifest["capsule_type"], "agent_handoff")
         self.assertEqual(manifest["created_by"], "agent-a")
         self.assertEqual(manifest["task_id"], "abc123")
+        self.assertEqual(manifest["delivery"], {"mode": "inline"})
         self.assertEqual(manifest["requested_capabilities"], ["read_files", "run_tests"])
         self.assertEqual(manifest["policy_hints"], {"network_egress": False, "sandbox_required": True})
         self.assertEqual(
@@ -55,6 +56,26 @@ class AgentCapsuleEnvelopeTests(unittest.TestCase):
 
         with self.assertRaisesRegex(CapsuleParseError, "missing capsule manifest fields"):
             parse_envelope(text)
+
+    def test_builds_reference_delivery_metadata(self) -> None:
+        envelope = build_envelope(
+            b"payload",
+            delivery_mode="reference",
+            delivery_uri="https://example.test/capsules/abc.txt",
+        )
+
+        manifest = envelope.capsule_manifest
+
+        self.assertIsNotNone(manifest)
+        assert manifest is not None
+        self.assertEqual(
+            manifest["delivery"],
+            {"mode": "reference", "uri": "https://example.test/capsules/abc.txt"},
+        )
+
+    def test_rejects_reference_delivery_without_uri(self) -> None:
+        with self.assertRaisesRegex(CapsuleParseError, "reference delivery requires a uri"):
+            build_envelope(b"payload", delivery_mode="reference")
 
     def test_reject_malformed_capsule(self) -> None:
         envelope = build_envelope(b"payload")

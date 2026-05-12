@@ -233,10 +233,65 @@ class AgentCapsuleCliTests(unittest.TestCase):
             self.assertEqual(manifest["capsule_type"], "agent_handoff")
             self.assertEqual(manifest["created_by"], "agent-a")
             self.assertEqual(manifest["task_id"], "abc123")
+            self.assertEqual(manifest["delivery"], {"mode": "inline"})
             self.assertEqual(manifest["requested_capabilities"], ["read_files", "run_tests"])
             self.assertEqual(manifest["policy_hints"], {"network_egress": False, "sandbox_required": True})
             self.assertEqual(manifest["files"][0]["path"], "patch.diff")
             self.assertEqual(manifest["files"][0]["bytes"], 4)
+
+    def test_pack_supports_attachment_delivery_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "payload.txt"
+            capsule = root / "capsule.txt"
+            source.write_text("payload", encoding="utf-8")
+
+            self.assertEqual(
+                _run_cli(["pack", str(source), "--out", str(capsule), "--delivery-mode", "attachment"]),
+                0,
+            )
+
+            status, stdout, stderr = _capture_cli(["inspect", str(capsule), "--json"])
+
+            self.assertEqual(status, 0)
+            self.assertEqual(stderr, "")
+            payload = json.loads(stdout)
+            self.assertEqual(payload["capsule_manifest"]["delivery"], {"mode": "attachment"})
+
+    def test_reference_json_output_includes_uri_hash_and_signature_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            capsule = root / "capsule.txt"
+            envelope = build_envelope(
+                b"payload",
+                delivery_mode="reference",
+                delivery_uri="https://example.test/capsules/capsule.txt",
+                created_at="2026-05-09T00:00:00Z",
+            )
+            capsule.write_text(render_envelope(envelope), encoding="utf-8")
+
+            status, stdout, stderr = _capture_cli(
+                [
+                    "reference",
+                    str(capsule),
+                    "--uri",
+                    "https://example.test/capsules/capsule.txt",
+                    "--json",
+                ]
+            )
+
+            self.assertEqual(status, 0)
+            self.assertEqual(stderr, "")
+            payload = json.loads(stdout)
+            self.assertEqual(payload["reference_type"], "agent_capsule_reference")
+            self.assertEqual(payload["schema_version"], 1)
+            self.assertEqual(payload["capsule_uri"], "https://example.test/capsules/capsule.txt")
+            self.assertEqual(payload["payload_sha256"], envelope.payload_sha256)
+            self.assertEqual(payload["signature"]["mode"], "none")
+            self.assertEqual(
+                payload["capsule_manifest"]["delivery"],
+                {"mode": "reference", "uri": "https://example.test/capsules/capsule.txt"},
+            )
 
     def test_inspect_json_output(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -21,6 +21,7 @@ DEFAULT_POLICY_HINTS = {
     "network_egress": False,
     "sandbox_required": True,
 }
+DELIVERY_MODES = ("inline", "attachment", "reference")
 
 
 @dataclass(frozen=True)
@@ -103,17 +104,28 @@ def build_capsule_manifest(
     files: list[dict[str, object]] | None = None,
     requested_capabilities: list[str] | None = None,
     policy_hints: dict[str, object] | None = None,
+    delivery_mode: str = "inline",
+    delivery_uri: str | None = None,
 ) -> dict[str, object]:
     manifest = {
         "capsule_type": capsule_type,
         "created_by": created_by,
         "task_id": task_id,
+        "delivery": build_delivery_metadata(mode=delivery_mode, uri=delivery_uri),
         "files": files or [],
         "requested_capabilities": requested_capabilities or [],
         "policy_hints": {**DEFAULT_POLICY_HINTS, **(policy_hints or {})},
     }
     validate_capsule_manifest(manifest)
     return manifest
+
+
+def build_delivery_metadata(*, mode: str, uri: str | None = None) -> dict[str, object]:
+    delivery: dict[str, object] = {"mode": mode}
+    if uri:
+        delivery["uri"] = uri
+    validate_delivery_metadata(delivery)
+    return delivery
 
 
 def encode_capsule_manifest(manifest: dict[str, object]) -> str:
@@ -162,6 +174,21 @@ def validate_capsule_manifest(manifest: Any) -> None:
     policy_hints = manifest["policy_hints"]
     if not isinstance(policy_hints, dict) or not all(isinstance(key, str) for key in policy_hints):
         raise CapsuleParseError("capsule manifest policy_hints must be an object")
+    if "delivery" in manifest:
+        validate_delivery_metadata(manifest["delivery"])
+
+
+def validate_delivery_metadata(delivery: Any) -> None:
+    if not isinstance(delivery, dict):
+        raise CapsuleParseError("capsule manifest delivery must be an object")
+    mode = delivery.get("mode")
+    if not isinstance(mode, str) or mode not in DELIVERY_MODES:
+        raise CapsuleParseError("capsule manifest delivery mode is invalid")
+    uri = delivery.get("uri")
+    if uri is not None and (not isinstance(uri, str) or not uri):
+        raise CapsuleParseError("capsule manifest delivery uri must be a non-empty string")
+    if mode == "reference" and uri is None:
+        raise CapsuleParseError("reference delivery requires a uri")
 
 
 def _validate_manifest_file(entry: Any) -> None:

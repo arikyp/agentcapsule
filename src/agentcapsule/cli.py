@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -11,7 +12,7 @@ from agentcapsule.audit import audit_event, disposition_from_risk, disposition_f
 from agentcapsule.backends import known_codecs, ngram_v2_headers_from_model_path
 from agentcapsule.envelope import build_envelope, parse_envelope, render_envelope, verify_envelope
 from agentcapsule.errors import CapsuleError
-from agentcapsule.manifest import DEFAULT_CAPSULE_TYPE, pack_path_with_manifest, unpack_payload
+from agentcapsule.manifest import DEFAULT_CAPSULE_TYPE, DELIVERY_MODES, pack_path_with_manifest, unpack_payload
 from agentcapsule.policy import DEFAULT_POLICY, CapsulePolicy, load_policy, policy_to_dict
 from agentcapsule.registry import list_codecs
 from agentcapsule.scanner import scan_text
@@ -50,6 +51,8 @@ def main(argv: list[str] | None = None) -> int:
     pack_parser.add_argument("--capsule-type", default=DEFAULT_CAPSULE_TYPE)
     pack_parser.add_argument("--created-by", default="local")
     pack_parser.add_argument("--task-id", default="")
+    pack_parser.add_argument("--delivery-mode", choices=DELIVERY_MODES, default="inline")
+    pack_parser.add_argument("--delivery-uri", help="capsule URI for reference delivery mode")
     pack_parser.add_argument(
         "--requested-capability",
         action="append",
@@ -109,6 +112,11 @@ def main(argv: list[str] | None = None) -> int:
     codecs_parser = subparsers.add_parser("codecs", help="list registered capsule codecs")
     codecs_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
 
+    reference_parser = subparsers.add_parser("reference", help="emit a capsule reference descriptor")
+    reference_parser.add_argument("capsule")
+    reference_parser.add_argument("--uri", required=True, help="URI where the full capsule can be fetched")
+    reference_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
+
     keys_parser = subparsers.add_parser("keys", help="manage local Agent Capsule signing keys")
     key_subparsers = keys_parser.add_subparsers(dest="key_command", required=True)
     key_generate = key_subparsers.add_parser("generate", help="generate a raw Ed25519 key pair")
@@ -142,6 +150,8 @@ def main(argv: list[str] | None = None) -> int:
                 manifest_files=packed.manifest_files,
                 requested_capabilities=args.requested_capability,
                 policy_hints=_policy_hints_from_args(args),
+                delivery_mode=args.delivery_mode,
+                delivery_uri=args.delivery_uri,
                 extra_headers=_backend_headers_from_args(args),
             )
             if args.sign_key_env:
@@ -300,6 +310,23 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"{codec.name}\t{codec.stability}\t{codec.purpose}")
                     print(f"  external model: {'yes' if codec.requires_external_model else 'no'}")
                     print(f"  notes: {codec.notes}")
+            return 0
+        if args.command == "reference":
+            descriptor = _capsule_reference(Path(args.capsule), args.uri)
+            if args.json:
+                _print_json(descriptor)
+            else:
+                print(f"reference type: {descriptor['reference_type']}")
+                print(f"capsule uri: {descriptor['capsule_uri']}")
+                print(f"capsule sha256: {descriptor['capsule_sha256']}")
+                print(f"payload sha256: {descriptor['payload_sha256']}")
+                signature = descriptor["signature"]
+                if isinstance(signature, dict):
+                    print(f"signature mode: {signature['mode']}")
+                    if signature.get("key_id"):
+                        print(f"signature key id: {signature['key_id']}")
+                    if signature.get("public_key_fingerprint"):
+                        print(f"signature public key fingerprint: {signature['public_key_fingerprint']}")
             return 0
         if args.command == "keys":
             if args.key_command == "generate":
@@ -505,6 +532,11 @@ def _print_inspection(inspection: dict[str, object]) -> None:
     manifest = inspection.get("capsule_manifest")
     if isinstance(manifest, dict):
         print(f"capsule type: {manifest['capsule_type']}")
+        delivery = manifest.get("delivery")
+        if isinstance(delivery, dict):
+            print(f"delivery mode: {delivery['mode']}")
+            if delivery.get("uri"):
+                print(f"delivery uri: {delivery['uri']}")
         if manifest.get("task_id"):
             print(f"task id: {manifest['task_id']}")
         files = manifest.get("files")
@@ -645,6 +677,32 @@ def _policy_hints_from_args(args: argparse.Namespace) -> dict[str, object]:
         else:
             raise CapsuleError(f"policy hint value must be true or false: {raw}")
     return hints
+
+
+def _capsule_reference(path: Path, uri: str) -> dict[str, object]:
+    raw = path.read_bytes()
+    envelope = parse_envelope(raw.decode("utf-8"))
+    signature_headers = envelope.headers
+    return {
+        "reference_type": "agent_capsule_reference",
+        "schema_version": 1,
+        "capsule_uri": uri,
+        "capsule_sha256": hashlib.sha256(raw).hexdigest(),
+        "capsule_version": envelope.headers["capsule_version"],
+        "payload_sha256": envelope.payload_sha256,
+        "codec": envelope.codec,
+        "content_type": envelope.content_type,
+        "created_by": envelope.headers["created_by"],
+        "created_at": envelope.headers["created_at"],
+        "capsule_manifest": envelope.capsule_manifest,
+        "signature": {
+            "mode": signature_headers.get("signature", SIGNATURE_NONE),
+            "key_id": signature_headers.get("signature_key_id"),
+            "public_key_fingerprint": signature_headers.get("signature_public_key_fingerprint"),
+            "value_encoding": signature_headers.get("signature_value_encoding"),
+            "value": signature_headers.get("signature_value"),
+        },
+    }
 
 
 def _codec_to_dict(codec) -> dict[str, object]:

@@ -33,9 +33,9 @@ The receiver policy requires registry trust and forbids inline public keys, so
 `signature_trust.status: trusted` is also present.
 
 The capsule header includes a signed manifest declaring `created_by: agent-a`,
-`task_id: demo-agent-handoff`, the decoded file inventory, requested receiver
-capabilities (`read_files`, `run_tests`), and policy hints requiring sandboxed
-decode with no network egress.
+`task_id: demo-agent-handoff`, `delivery.mode: inline`, the decoded file
+inventory, requested receiver capabilities (`read_files`, `run_tests`), and
+policy hints requiring sandboxed decode with no network egress.
 
 ## Run
 

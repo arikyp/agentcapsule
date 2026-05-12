@@ -26,7 +26,7 @@ sandbox directory, and apply local policy before using the content.
 capsule_version: 0.1
 codec: base64
 content_type: application/vnd.agent.bundle+json
-capsule_manifest: {"capsule_type":"agent_handoff","created_by":"agent-a","files":[{"bytes":1204,"path":"patch.diff","sha256":"<sha256>"}],"policy_hints":{"network_egress":false,"sandbox_required":true},"requested_capabilities":["read_files","run_tests"],"task_id":"abc123"}
+capsule_manifest: {"capsule_type":"agent_handoff","created_by":"agent-a","delivery":{"mode":"inline"},"files":[{"bytes":1204,"path":"patch.diff","sha256":"<sha256>"}],"policy_hints":{"network_egress":false,"sandbox_required":true},"requested_capabilities":["read_files","run_tests"],"task_id":"abc123"}
 payload_sha256: <sha256>
 compression: none
 encryption: none
@@ -50,7 +50,8 @@ headers, missing boundaries, and hash mismatches are rejected.
   `lmcodec-ngram-v2`.
 - `content_type`: decoded payload type.
 - `capsule_manifest`: optional canonical JSON manifest for agent handoff
-  intent, file inventory, requested receiver capabilities, and policy hints.
+  intent, delivery mode, file inventory, requested receiver capabilities, and
+  policy hints.
 - `payload_sha256`: SHA256 of the decoded payload bytes.
 - `compression`: reserved, currently `none`.
 - `encryption`: reserved, currently `none`.
@@ -80,6 +81,9 @@ Ed25519 signatures when the capsule is signed.
   "capsule_type": "agent_handoff",
   "created_by": "agent-a",
   "task_id": "abc123",
+  "delivery": {
+    "mode": "inline"
+  },
   "files": [
     {
       "path": "patch.diff",
@@ -100,6 +104,49 @@ length. For directory bundles, this inventory mirrors the bundle file entries
 without embedding file contents in the header. Receivers should treat
 `requested_capabilities` and `policy_hints` as claims to evaluate against local
 policy, not as authorization by themselves.
+
+## Delivery Modes
+
+V0 distinguishes three delivery modes:
+
+1. `inline`: the complete capsule envelope is pasted directly into the message
+   body.
+2. `attachment`: the complete capsule envelope is attached as a file or blob to
+   A2A, MIME, GitHub, or a similar channel.
+3. `reference`: the message carries a reference descriptor with a capsule URI,
+   capsule SHA256, payload SHA256, and signature metadata. The receiver fetches
+   the full capsule, verifies the referenced capsule hash, then performs normal
+   capsule verification.
+
+`inline` and `attachment` use the same capsule envelope bytes. They differ only
+in channel handling and in the manifest `delivery.mode` claim. `reference`
+still requires the full capsule to exist at the referenced URI; the URI is only
+a locator and does not replace hash or signature verification.
+
+A compact reference descriptor has this shape:
+
+```json
+{
+  "reference_type": "agent_capsule_reference",
+  "schema_version": 1,
+  "capsule_uri": "https://example.test/capsules/abc.txt",
+  "capsule_sha256": "<sha256 of full capsule envelope bytes>",
+  "payload_sha256": "<sha256 of decoded payload bytes>",
+  "signature": {
+    "mode": "ed25519",
+    "key_id": "agent-a-demo-2026q2",
+    "public_key_fingerprint": "<sha256>"
+  }
+}
+```
+
+The local CLI can emit this descriptor:
+
+```bash
+capsule reference agent-a-handoff.capsule.txt \
+  --uri https://example.test/capsules/agent-a-handoff.capsule.txt \
+  --json
+```
 
 ## Backend Model
 
@@ -376,7 +423,7 @@ For the proposed public-key signing path, see
 capsule_version: 0.1
 codec: base64
 content_type: application/octet-stream
-capsule_manifest: {"capsule_type":"agent_handoff","created_by":"local","files":[{"bytes":4,"path":"payload.txt","sha256":"3a6eb0790f39ac87c94f3856b2dd2c5d110e6811602261a9a923d3bb23adc8b7"}],"policy_hints":{"network_egress":false,"sandbox_required":true},"requested_capabilities":[],"task_id":""}
+capsule_manifest: {"capsule_type":"agent_handoff","created_by":"local","delivery":{"mode":"inline"},"files":[{"bytes":4,"path":"payload.txt","sha256":"3a6eb0790f39ac87c94f3856b2dd2c5d110e6811602261a9a923d3bb23adc8b7"}],"policy_hints":{"network_egress":false,"sandbox_required":true},"requested_capabilities":[],"task_id":""}
 payload_sha256: 3a6eb0790f39ac87c94f3856b2dd2c5d110e6811602261a9a923d3bb23adc8b7
 compression: none
 encryption: none
