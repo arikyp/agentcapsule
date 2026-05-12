@@ -382,16 +382,16 @@ For strict public-key channels, require Ed25519 plus a local registry:
 Base64 is the primary V0 path:
 
 ```bash
-capsule pack payload.bin --out capsule.txt
-capsule inspect capsule.txt
-capsule verify capsule.txt
-capsule unpack capsule.txt --out decoded
+agentcapsule pack payload.bin --out capsule.txt
+agentcapsule inspect capsule.txt
+agentcapsule verify capsule.txt
+agentcapsule unpack capsule.txt --out decoded
 ```
 
 Pack a directory handoff with manifest metadata:
 
 ```bash
-capsule pack examples/agent_capsule_demo/handoff \
+agentcapsule pack examples/agent_capsule_demo/handoff \
   --out capsule.txt \
   --created-by agent-a \
   --task-id abc123 \
@@ -399,18 +399,18 @@ capsule pack examples/agent_capsule_demo/handoff \
   --requested-capability run_tests \
   --policy-hint sandbox_required=true \
   --policy-hint network_egress=false
-capsule scan capsule.txt
+agentcapsule scan capsule.txt
 ```
 
 Emit machine-readable output for agents and governance logs:
 
 ```bash
-capsule codecs
-capsule verify capsule.txt --policy examples/agent_capsule_demo/policy-strict.json
-capsule inspect capsule.txt --json
-capsule verify capsule.txt --audit-json
-capsule scan capsule.txt --json
-capsule codecs --json
+agentcapsule codecs
+agentcapsule verify capsule.txt --policy examples/agent_capsule_demo/policy-strict.json
+agentcapsule inspect capsule.txt --json
+agentcapsule verify capsule.txt --audit-json
+agentcapsule scan capsule.txt --json
+agentcapsule codecs --json
 sh scripts/demo_agent_capsule_governance.sh
 sh scripts/demo_agent_capsule_audit.sh
 ```
@@ -440,9 +440,9 @@ Create and verify an HMAC-signed capsule:
 
 ```bash
 CAPSULE_HMAC_KEY='shared secret' \
-  capsule pack payload.bin --out capsule.txt --sign-key-env CAPSULE_HMAC_KEY
+  agentcapsule pack payload.bin --out capsule.txt --sign-key-env CAPSULE_HMAC_KEY
 CAPSULE_HMAC_KEY='shared secret' \
-  capsule verify capsule.txt --key-env CAPSULE_HMAC_KEY
+  agentcapsule verify capsule.txt --key-env CAPSULE_HMAC_KEY
 ```
 
 The HMAC covers all capsule headers except `signature_value` plus the encoded
@@ -451,11 +451,11 @@ payload text. Changing metadata or payload text invalidates the signature.
 Create and verify an Ed25519-signed capsule:
 
 ```bash
-capsule keys generate --private-key publisher.key --public-key publisher.pub
-capsule pack payload.bin --out capsule.txt \
+agentcapsule keys generate --private-key publisher.key --public-key publisher.pub
+agentcapsule pack payload.bin --out capsule.txt \
   --sign-ed25519-key publisher.key \
   --signature-key-id publisher-prod-2026q2
-capsule verify capsule.txt --policy examples/agent_capsule_demo/policy-require-ed25519.json
+agentcapsule verify capsule.txt --policy examples/agent_capsule_demo/policy-require-ed25519.json
 ```
 
 By default, the Ed25519 prototype embeds the raw public key as base64 metadata
@@ -464,17 +464,17 @@ was signed by that key; they do not prove the key is trusted. To model registry
 mode, omit inline key metadata and provide a local public key file:
 
 ```bash
-capsule pack payload.bin --out capsule.txt \
+agentcapsule pack payload.bin --out capsule.txt \
   --sign-ed25519-key publisher.key \
   --signature-key-id publisher-prod-2026q2 \
   --no-inline-public-key
-capsule verify capsule.txt --ed25519-public-key publisher.pub
+agentcapsule verify capsule.txt --ed25519-public-key publisher.pub
 ```
 
 Create a local registry entry:
 
 ```bash
-capsule keys registry-entry \
+agentcapsule keys registry-entry \
   --key-id publisher-prod-2026q2 \
   --public-key publisher.pub \
   --publisher "Example Publisher"
@@ -483,7 +483,7 @@ capsule keys registry-entry \
 Verify against a local registry:
 
 ```bash
-capsule verify capsule.txt \
+agentcapsule verify capsule.txt \
   --policy examples/agent_capsule_demo/policy-require-ed25519-registry.json \
   --signature-registry trusted-keys.json
 ```
@@ -511,31 +511,31 @@ For local development:
 ```bash
 python3 -m pip install -e .
 printf 'agent handoff state\n' > payload.txt
-capsule pack payload.txt --out capsule.txt
-capsule inspect capsule.txt --json
-capsule verify capsule.txt
-capsule unpack capsule.txt --out decoded
+agentcapsule pack payload.txt --out capsule.txt
+agentcapsule inspect capsule.txt --json
+agentcapsule verify capsule.txt
+agentcapsule unpack capsule.txt --out decoded
 cmp payload.txt decoded/payload.txt
 ```
 
 For signed local testing:
 
 ```bash
-CAPSULE_HMAC_KEY='shared secret' capsule pack payload.txt \
+CAPSULE_HMAC_KEY='shared secret' agentcapsule pack payload.txt \
   --out signed.capsule.txt \
   --sign-key-env CAPSULE_HMAC_KEY \
   --signature-key-id dev-shared-key
-CAPSULE_HMAC_KEY='shared secret' capsule verify signed.capsule.txt --key-env CAPSULE_HMAC_KEY
+CAPSULE_HMAC_KEY='shared secret' agentcapsule verify signed.capsule.txt --key-env CAPSULE_HMAC_KEY
 ```
 
 For reference-mode testing:
 
 ```bash
-capsule pack payload.txt \
+agentcapsule pack payload.txt \
   --out reference.capsule.txt \
   --delivery-mode reference \
   --delivery-uri https://example.test/capsules/reference.capsule.txt
-capsule reference reference.capsule.txt \
+agentcapsule reference reference.capsule.txt \
   --uri https://example.test/capsules/reference.capsule.txt \
   --json
 ```

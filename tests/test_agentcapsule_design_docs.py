@@ -31,8 +31,12 @@ class AgentCapsuleDesignDocsTests(unittest.TestCase):
     def test_project_dependencies_remain_empty(self) -> None:
         data = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
 
+        self.assertEqual(data["project"]["name"], "agentcapsule")
         self.assertEqual(data["project"]["dependencies"], [])
         self.assertEqual(data["project"]["optional-dependencies"]["signing"], ["cryptography>=46,<47"])
+        self.assertEqual(data["project"]["scripts"]["agentcapsule"], "agentcapsule.cli:main")
+        self.assertEqual(data["project"]["scripts"]["capsule"], "agentcapsule.cli:main")
+        self.assertEqual(data["project"]["scripts"]["lmcodec"], "lmcodec.cli:main")
 
     def test_audit_log_doc_is_linked(self) -> None:
         self.assertIn("AGENT_CAPSULE_AUDIT_LOG_V0.md", (ROOT / "README.md").read_text(encoding="utf-8"))
