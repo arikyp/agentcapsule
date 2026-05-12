@@ -10,6 +10,7 @@ jobs:
   publish:
     name: Build And Publish To PyPI
     runs-on: ubuntu-latest
+    environment: pypi
     permissions:
       id-token: write
       contents: read
