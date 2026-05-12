@@ -1,8 +1,22 @@
 {
-  "task": "demo-agent-handoff",
-  "priority": "low",
-  "artifacts": [
-    "notes.md",
-    "tool-config.json"
-  ]
+  "capsule_type": "agent_handoff",
+  "created_by": "agent-a",
+  "task_id": "demo-agent-handoff",
+  "files": [
+    {
+      "path": "notes.md",
+      "sha256": "<sha256>",
+      "bytes": 512
+    },
+    {
+      "path": "tool-config.json",
+      "sha256": "<sha256>",
+      "bytes": 96
+    }
+  ],
+  "requested_capabilities": ["read_files", "run_tests"],
+  "policy_hints": {
+    "sandbox_required": true,
+    "network_egress": false
+  }
 }

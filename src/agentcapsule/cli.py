@@ -11,7 +11,7 @@ from agentcapsule.audit import audit_event, disposition_from_risk, disposition_f
 from agentcapsule.backends import known_codecs, ngram_v2_headers_from_model_path
 from agentcapsule.envelope import build_envelope, parse_envelope, render_envelope, verify_envelope
 from agentcapsule.errors import CapsuleError
-from agentcapsule.manifest import pack_path, unpack_payload
+from agentcapsule.manifest import DEFAULT_CAPSULE_TYPE, pack_path_with_manifest, unpack_payload
 from agentcapsule.policy import DEFAULT_POLICY, CapsulePolicy, load_policy, policy_to_dict
 from agentcapsule.registry import list_codecs
 from agentcapsule.scanner import scan_text
@@ -47,6 +47,22 @@ def main(argv: list[str] | None = None) -> int:
     pack_parser.add_argument("--out", required=True)
     pack_parser.add_argument("--codec", choices=known_codecs(), default="base64")
     pack_parser.add_argument("--model", help="LMCodec model JSON for model-backed capsule codecs")
+    pack_parser.add_argument("--capsule-type", default=DEFAULT_CAPSULE_TYPE)
+    pack_parser.add_argument("--created-by", default="local")
+    pack_parser.add_argument("--task-id", default="")
+    pack_parser.add_argument(
+        "--requested-capability",
+        action="append",
+        default=[],
+        help="capability requested from the receiver; repeatable",
+    )
+    pack_parser.add_argument(
+        "--policy-hint",
+        action="append",
+        default=[],
+        metavar="KEY=true|false",
+        help="boolean policy hint for the receiver; repeatable",
+    )
     pack_parser.add_argument("--sign-key-env", help="environment variable containing HMAC-SHA256 signing key")
     pack_parser.add_argument("--sign-ed25519-key", help="base64 raw Ed25519 private key file")
     pack_parser.add_argument(
@@ -114,12 +130,18 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "pack":
             if args.sign_key_env and args.sign_ed25519_key:
                 raise CapsuleError("choose only one signature mode")
-            payload, content_type, filename = pack_path(Path(args.path))
+            packed = pack_path_with_manifest(Path(args.path))
             envelope = build_envelope(
-                payload,
+                packed.payload,
                 codec=args.codec,
-                content_type=content_type,
-                filename=filename,
+                content_type=packed.content_type,
+                filename=packed.filename,
+                created_by=args.created_by,
+                capsule_type=args.capsule_type,
+                task_id=args.task_id,
+                manifest_files=packed.manifest_files,
+                requested_capabilities=args.requested_capability,
+                policy_hints=_policy_hints_from_args(args),
                 extra_headers=_backend_headers_from_args(args),
             )
             if args.sign_key_env:
@@ -138,8 +160,8 @@ def main(argv: list[str] | None = None) -> int:
             Path(args.out).write_text(render_envelope(envelope), encoding="utf-8", newline="\n")
             print(f"capsule path: {args.out}")
             print(f"codec: {args.codec}")
-            print(f"content type: {content_type}")
-            print(f"payload bytes: {len(payload)}")
+            print(f"content type: {packed.content_type}")
+            print(f"payload bytes: {len(packed.payload)}")
             print(f"payload sha256: {envelope.payload_sha256}")
             return 0
         if args.command == "inspect":
@@ -190,6 +212,7 @@ def main(argv: list[str] | None = None) -> int:
                 "payload_sha256": envelope.payload_sha256,
                 "codec": envelope.codec,
                 "content_type": envelope.content_type,
+                "capsule_manifest": envelope.capsule_manifest,
                 "signature_trust": trust.to_dict() if trust else None,
             }
             if args.audit_json:
@@ -233,6 +256,7 @@ def main(argv: list[str] | None = None) -> int:
                 "payload_sha256": envelope.payload_sha256,
                 "codec": envelope.codec,
                 "content_type": envelope.content_type,
+                "capsule_manifest": envelope.capsule_manifest,
                 "files_written": [str(path) for path in written],
             }
             if args.audit_json:
@@ -428,6 +452,7 @@ def _inspect_envelope(
         "capsule_version": envelope.headers["capsule_version"],
         "codec": envelope.codec,
         "content_type": envelope.content_type,
+        "capsule_manifest": envelope.capsule_manifest,
         "compression": envelope.headers["compression"],
         "encryption": envelope.headers["encryption"],
         "signature_mode": envelope.headers["signature"],
@@ -477,6 +502,17 @@ def _print_inspection(inspection: dict[str, object]) -> None:
     print(f"capsule version: {inspection['capsule_version']}")
     print(f"codec: {inspection['codec']}")
     print(f"content type: {inspection['content_type']}")
+    manifest = inspection.get("capsule_manifest")
+    if isinstance(manifest, dict):
+        print(f"capsule type: {manifest['capsule_type']}")
+        if manifest.get("task_id"):
+            print(f"task id: {manifest['task_id']}")
+        files = manifest.get("files")
+        if isinstance(files, list):
+            print(f"manifest files: {len(files)}")
+        capabilities = manifest.get("requested_capabilities")
+        if isinstance(capabilities, list) and capabilities:
+            print(f"requested capabilities: {', '.join(str(item) for item in capabilities)}")
     print(f"compression: {inspection['compression']}")
     print(f"encryption: {inspection['encryption']}")
     print(f"signature mode: {inspection['signature_mode']}")
@@ -590,6 +626,25 @@ def _backend_headers_from_args(args: argparse.Namespace) -> dict[str, str]:
     if args.model:
         raise CapsuleError(f"--model is not supported for codec: {args.codec}")
     return {}
+
+
+def _policy_hints_from_args(args: argparse.Namespace) -> dict[str, object]:
+    hints: dict[str, object] = {}
+    for raw in getattr(args, "policy_hint", []):
+        if "=" not in raw:
+            raise CapsuleError(f"invalid policy hint: {raw}")
+        key, value = raw.split("=", 1)
+        key = key.strip()
+        value = value.strip().lower()
+        if not key:
+            raise CapsuleError("policy hint key is required")
+        if value == "true":
+            hints[key] = True
+        elif value == "false":
+            hints[key] = False
+        else:
+            raise CapsuleError(f"policy hint value must be true or false: {raw}")
+    return hints
 
 
 def _codec_to_dict(codec) -> dict[str, object]:

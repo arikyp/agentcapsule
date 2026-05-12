@@ -11,7 +11,8 @@ The demo is local and deterministic. It does not call external LLM APIs.
 1. Create an Agent A Ed25519 key pair.
 2. Create a local Agent B trust registry containing Agent A's public key.
 3. Bundle `examples/agent_handoff_demo/agent_a_workspace/`.
-4. Pack and sign the bundle as an Agent Capsule.
+4. Pack the bundle with an `agent_handoff` manifest and sign it as an Agent
+   Capsule.
 5. Compose a text message with a human-readable summary plus the full capsule.
 6. Scan the message under Agent B policy.
 7. Verify the capsule under Agent B policy and registry trust.
@@ -30,6 +31,11 @@ The demo is local and deterministic. It does not call external LLM APIs.
 The receiver policy requires registry trust and forbids inline public keys, so
 `signature_verification: ok` is not enough. The handoff is accepted only when
 `signature_trust.status: trusted` is also present.
+
+The capsule header includes a signed manifest declaring `created_by: agent-a`,
+`task_id: demo-agent-handoff`, the decoded file inventory, requested receiver
+capabilities (`read_files`, `run_tests`), and policy hints requiring sandboxed
+decode with no network egress.
 
 ## Run
 

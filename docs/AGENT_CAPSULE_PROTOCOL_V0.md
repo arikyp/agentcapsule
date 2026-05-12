@@ -26,6 +26,7 @@ sandbox directory, and apply local policy before using the content.
 capsule_version: 0.1
 codec: base64
 content_type: application/vnd.agent.bundle+json
+capsule_manifest: {"capsule_type":"agent_handoff","created_by":"agent-a","files":[{"bytes":1204,"path":"patch.diff","sha256":"<sha256>"}],"policy_hints":{"network_egress":false,"sandbox_required":true},"requested_capabilities":["read_files","run_tests"],"task_id":"abc123"}
 payload_sha256: <sha256>
 compression: none
 encryption: none
@@ -48,6 +49,8 @@ headers, missing boundaries, and hash mismatches are rejected.
 - `codec`: payload text codec, currently `base64`, `lmcodec-fixed`, or
   `lmcodec-ngram-v2`.
 - `content_type`: decoded payload type.
+- `capsule_manifest`: optional canonical JSON manifest for agent handoff
+  intent, file inventory, requested receiver capabilities, and policy hints.
 - `payload_sha256`: SHA256 of the decoded payload bytes.
 - `compression`: reserved, currently `none`.
 - `encryption`: reserved, currently `none`.
@@ -65,6 +68,38 @@ headers, missing boundaries, and hash mismatches are rejected.
 - `created_at`: UTC ISO timestamp.
 - `policy`: policy hint, currently `inspect-before-use`.
 - `filename`: optional single-file output name.
+
+## Capsule Manifest
+
+Newly built capsules include a canonical JSON `capsule_manifest` header. The
+header is inspectable before payload decode and is covered by HMAC-SHA256 or
+Ed25519 signatures when the capsule is signed.
+
+```json
+{
+  "capsule_type": "agent_handoff",
+  "created_by": "agent-a",
+  "task_id": "abc123",
+  "files": [
+    {
+      "path": "patch.diff",
+      "sha256": "<sha256>",
+      "bytes": 1204
+    }
+  ],
+  "requested_capabilities": ["read_files", "run_tests"],
+  "policy_hints": {
+    "sandbox_required": true,
+    "network_egress": false
+  }
+}
+```
+
+The `files` list describes decoded files by relative path, SHA256, and byte
+length. For directory bundles, this inventory mirrors the bundle file entries
+without embedding file contents in the header. Receivers should treat
+`requested_capabilities` and `policy_hints` as claims to evaluate against local
+policy, not as authorization by themselves.
 
 ## Backend Model
 
@@ -106,6 +141,8 @@ Single files are stored as raw decoded bytes with content type
 Directories are stored as deterministic JSON bundles with content type
 `application/vnd.agent.bundle+json`. Bundle entries include relative path, byte
 size, SHA256, and base64 file contents. Paths are sorted deterministically.
+The capsule manifest repeats the relative path, SHA256, and byte count so a
+receiver can inspect handoff scope before decoding the payload.
 
 ## Security Model
 
@@ -339,6 +376,7 @@ For the proposed public-key signing path, see
 capsule_version: 0.1
 codec: base64
 content_type: application/octet-stream
+capsule_manifest: {"capsule_type":"agent_handoff","created_by":"local","files":[{"bytes":4,"path":"payload.txt","sha256":"3a6eb0790f39ac87c94f3856b2dd2c5d110e6811602261a9a923d3bb23adc8b7"}],"policy_hints":{"network_egress":false,"sandbox_required":true},"requested_capabilities":[],"task_id":""}
 payload_sha256: 3a6eb0790f39ac87c94f3856b2dd2c5d110e6811602261a9a923d3bb23adc8b7
 compression: none
 encryption: none

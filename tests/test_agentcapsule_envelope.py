@@ -1,3 +1,5 @@
+import hashlib
+import json
 import unittest
 
 from agentcapsule.envelope import build_envelope, parse_envelope, render_envelope, verify_envelope
@@ -13,6 +15,46 @@ class AgentCapsuleEnvelopeTests(unittest.TestCase):
         self.assertEqual(parsed.headers["capsule_version"], "0.1")
         self.assertEqual(parsed.codec, "base64")
         self.assertEqual(verify_envelope(parsed), b"hello capsule")
+
+    def test_builds_capsule_manifest_header(self) -> None:
+        envelope = build_envelope(
+            b"diff",
+            filename="patch.diff",
+            created_by="agent-a",
+            task_id="abc123",
+            requested_capabilities=["read_files", "run_tests"],
+            policy_hints={"network_egress": False, "sandbox_required": True},
+            created_at="2026-05-09T00:00:00Z",
+        )
+        parsed = parse_envelope(render_envelope(envelope))
+
+        manifest = parsed.capsule_manifest
+
+        self.assertIsNotNone(manifest)
+        assert manifest is not None
+        self.assertEqual(manifest["capsule_type"], "agent_handoff")
+        self.assertEqual(manifest["created_by"], "agent-a")
+        self.assertEqual(manifest["task_id"], "abc123")
+        self.assertEqual(manifest["requested_capabilities"], ["read_files", "run_tests"])
+        self.assertEqual(manifest["policy_hints"], {"network_egress": False, "sandbox_required": True})
+        self.assertEqual(
+            manifest["files"],
+            [
+                {
+                    "path": "patch.diff",
+                    "sha256": hashlib.sha256(b"diff").hexdigest(),
+                    "bytes": 4,
+                }
+            ],
+        )
+
+    def test_rejects_malformed_capsule_manifest_header(self) -> None:
+        envelope = build_envelope(b"payload")
+        bad_manifest = json.dumps({"capsule_type": "agent_handoff"})
+        text = render_envelope(envelope).replace(envelope.headers["capsule_manifest"], bad_manifest)
+
+        with self.assertRaisesRegex(CapsuleParseError, "missing capsule manifest fields"):
+            parse_envelope(text)
 
     def test_reject_malformed_capsule(self) -> None:
         envelope = build_envelope(b"payload")
