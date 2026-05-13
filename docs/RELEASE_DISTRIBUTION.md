@@ -36,9 +36,10 @@ Current automation:
 
 Current automation:
 
-- `.github/workflows/pypi-publish.yml` builds distributions and publishes with
-  `pypa/gh-action-pypi-publish` using GitHub OIDC trusted publishing.
-- Configure a PyPI trusted publisher for this repository before enabling public
+- `.github/workflows/pypi-publish.yml` builds distributions and publishes on
+  `v*` tags with `pypa/gh-action-pypi-publish` using GitHub OIDC trusted
+  publishing.
+- Configure a PyPI trusted publisher for this repository before cutting public
   release tags.
 
 ## Binary Distribution Plan
@@ -66,15 +67,6 @@ The binary release format is intentionally separate from the protocol format.
 Agent Capsule is a transport artifact; the release bundle is just one way to
 install or distribute the CLI.
 
-## License Decision
+## License
 
-This repository currently has no declared public license. Before public launch,
-choose and commit one license file so the package terms are explicit.
-
-Recommended choices:
-
-- `Apache-2.0` if patent grant and conservative enterprise posture matter most
-- `MIT` if the project wants the shortest common permissive license
-
-Until a license is committed, the repository should be treated as all rights
-reserved outside the owner’s intended context.
+The repository is licensed under Apache-2.0. See `LICENSE`.

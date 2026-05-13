@@ -304,6 +304,7 @@ Pinned Transformer fixture metrics for `bytes(range(256))` with
 
 ## Documentation
 
+- [docs/README.md](docs/README.md): minimal docs index.
 - [docs/INSTALL.md](docs/INSTALL.md): install options including `pipx`.
 - [docs/QUICKSTART.md](docs/QUICKSTART.md): installed CLI usage.
 - [docs/AGENT_CAPSULE_PROTOCOL_V0.md](docs/AGENT_CAPSULE_PROTOCOL_V0.md):
@@ -313,8 +314,6 @@ Pinned Transformer fixture metrics for `bytes(range(256))` with
 - [docs/RELEASE_DISTRIBUTION.md](docs/RELEASE_DISTRIBUTION.md): release and
   publishing path.
 - [docs/TESTING.md](docs/TESTING.md): stress/property test strategy.
-- [docs/archive/lmcodec-research/README.md](docs/archive/lmcodec-research/README.md):
-  archived LMCodec research notes and experiment docs.
 - [schemas/benchmark_result_v1.json](schemas/benchmark_result_v1.json):
   benchmark JSON schema contract.
 - [CHANGELOG.md](CHANGELOG.md): release notes.
