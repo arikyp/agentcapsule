@@ -28,7 +28,7 @@ runs the unit suite, and compile-checks Python modules and scripts.
 
 Fixed carrier:
 
-- Message fixture: `tests/fixtures/golden_message_v1.txt`
+- Historical message fixture: fixed carrier golden message
 - Model fingerprint:
   `d60583f4d741e42cb713b11c78b8ffc89cda1ee05eca522929bec8cbdb423be8`
 - Message SHA256:
@@ -37,7 +37,7 @@ Fixed carrier:
 Order-1 n-gram carrier:
 
 - Model fixture: `tests/fixtures/ngram_model_v1.json`
-- Message fixture: `tests/fixtures/ngram_golden_message_v1.txt`
+- Historical message fixture: order-1 n-gram golden message
 - Model fingerprint:
   `b1cd62a9019b67e0a42913dac1dca09852b4931f09afa87bb8e62089fe184a3a`
 - Message SHA256:
@@ -45,8 +45,8 @@ Order-1 n-gram carrier:
 
 Transformer carrier:
 
-- Model fixture: `tests/fixtures/transformer_model_v1.json`
-- Message fixture: `tests/fixtures/transformer_golden_message_v1.txt`
+- Historical model fixture: transformer carrier model
+- Historical message fixture: transformer golden message
 - Settings: `SHAPE_UNIFORM_MIX=0.80; TEMPERATURE=1.25`
 - Model fingerprint:
   `cfc75d7b54524f7a09a90454d89768aa4eb75b17546607c376760e2fc9d8f851`

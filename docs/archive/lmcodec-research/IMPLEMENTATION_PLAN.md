@@ -246,10 +246,10 @@ lmcodec/
   scripts/
     generate_golden.py
     demo_roundtrip.sh
-  tests/
-    fixtures/
+tests/
+  fixtures/
       model_v1.pkl
-      golden_message_v1.txt
+      historical golden message fixture
     test_armour.py
     test_codec.py
     test_framing.py
@@ -317,8 +317,8 @@ Golden V1 fixture:
 payload = bytes(range(256))
 TOT = 65536
 TOPK = 0
-model = tests/fixtures/model_v1.pkl
-message = tests/fixtures/golden_message_v1.txt
+model = historical fixed-carrier model
+message = historical fixed-carrier golden message
 ```
 
 Golden test asserts:

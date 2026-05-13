@@ -98,7 +98,7 @@ For Transformer shaping sweeps:
 
 ```bash
 scripts/sweep_shaping.py \
-  --model tests/fixtures/transformer_model_v1.json \
+  --model historical-transformer-model.json \
   --payload pyproject.toml \
   --quality-text examples/carrier_heldout_v2.txt \
   --uniform-mixes 0.4,0.6,0.75,0.85 \
