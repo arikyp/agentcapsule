@@ -86,3 +86,5 @@ PYTHON=.venv/bin/python sh scripts/demo_agent_capsule_audit.sh
 The demo emits allow, review, and block audit events. If `cryptography` is
 installed through `agentcapsule[signing]`, it also emits a registry-trusted Ed25519
 verification event.
+When that signed path is being validated, the signing extra must be installed
+before the run starts.

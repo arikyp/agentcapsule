@@ -45,6 +45,10 @@ Ed25519 support is optional:
 python3 -m pip install -e ".[signing]"
 ```
 
+Install the signing extra before running any validation path that expects an
+Ed25519 signature or registry-trusted result. Without it, the demo only covers
+the base unsigned and HMAC flows.
+
 Run the demo:
 
 ```bash

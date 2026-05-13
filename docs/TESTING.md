@@ -30,6 +30,13 @@ sh scripts/release_check.sh
 
 The Agent Capsule demo exercises pack, inspect, verify, unpack, scan JSON,
 codec registry output, and HMAC signing.
+Any test or demo path that exercises Ed25519 signing or registry-trusted
+verification must install the optional signing extra first:
+
+```bash
+python3 -m pip install -e ".[signing]"
+```
+
 `scripts/demo_agent_capsule_ed25519.sh` additionally exercises the optional
 `agentcapsule[signing]` Ed25519 prototype when `cryptography` is installed.
 `scripts/demo_agent_capsule_registry.sh` exercises local Ed25519 trust registry
