@@ -21,11 +21,11 @@ sandbox directory, and apply local policy before using the content.
 
 ## Public Spec Orientation
 
-Agent Capsule is the format. Base64 is the primary V0 payload text codec.
-Experimental research codecs are optional and only needed for carrier-shaping
-experiments. A conforming V0 receiver should implement the Base64 capsule path
-first: parse the envelope, inspect metadata, verify SHA256, apply local policy,
-decode the payload, and unpack only into a caller-selected sandbox directory.
+Agent Capsule is the format. Base64 is the primary V0 payload text codec. A
+conforming V0 receiver should implement the Base64 capsule path first: parse
+the envelope, inspect metadata, verify SHA256, apply local policy, decode the
+payload, and unpack only into a caller-selected sandbox directory. Legacy
+research codecs are archived and not part of the public-facing install story.
 
 ## Envelope Vs Manifest Vs Delivery Mode
 
@@ -90,8 +90,8 @@ headers, missing boundaries, and hash mismatches are rejected.
 ## Metadata Fields
 
 - `capsule_version`: protocol version, currently `0.1`.
-- `codec`: payload text codec, currently `base64`, `lmcodec-fixed`, or
-  `lmcodec-ngram-v2`.
+- `codec`: payload text codec, currently `base64`. Legacy research codec names
+  are retained only for archived experiments and regression fixtures.
 - `content_type`: decoded payload type.
 - `capsule_manifest`: optional canonical JSON manifest for agent handoff
   intent, delivery mode, file inventory, requested receiver capabilities, and
@@ -200,36 +200,16 @@ capsule reference agent-a-handoff.capsule.txt \
 
 ## Backend Model
 
-V0 includes one primary backend plus two experimental research backends:
+V0 uses `base64` as the primary backend.
 
-- `base64`: stable interoperability baseline and recommended default.
-- `lmcodec-fixed`: fixed research carrier wrapped as a capsule payload backend
-  for deterministic carrier-shaping experiments.
-- `lmcodec-ngram-v2`: n-gram research backend with explicit model
-  metadata in the capsule header. V0 embeds canonical n-gram model JSON as
-  base64 metadata and records model type, fingerprint, SHA256, order, and
-  uniform mix.
-
-The local codec registry is inspectable:
+The local codec registry remains inspectable:
 
 ```bash
 capsule codecs
 ```
 
-Future backends can register n-gram, quality-shaped, registry-driven, or
-Transformer carriers without changing the envelope model.
-
-## Model Metadata Modes
-
-`lmcodec-ngram-v2` currently uses inline model mode. The capsule embeds the
-canonical n-gram model JSON in plaintext metadata as base64 and verifies it with
-both SHA256 and the research model fingerprint. This is portable,
-self-contained, and useful for demos, offline handoff, and exact reproduction.
-
-Future registry model mode should replace bulky inline model metadata with a
-compact model reference such as a registry ID, model fingerprint, and trust
-domain. Registry mode will be more enterprise-friendly, but it requires a
-trusted model registry and policy rules for which model references are allowed.
+Legacy research codecs are kept only for archived experiments and regression
+coverage. They are not part of the public-facing install path.
 
 ## Payload Formats
 
@@ -260,9 +240,8 @@ V0 is optimized for small to medium handoff artifacts, not bulk data transfer.
   evidence.
 
 Base64 expands payload bytes by about one third before envelope overhead.
-Directory bundles add JSON field names plus per-file base64 content. Research
-carriers are generally larger and slower than Base64; use them only when
-carrier-shaping is the experiment.
+Directory bundles add JSON field names plus per-file base64 content. Legacy
+research carriers are archived and should not be treated as the public default.
 
 ## Security Model
 
@@ -287,9 +266,8 @@ Non-goals for V0:
 - Remote trust registry.
 - Central policy service.
 - DLP or SaaS integrations.
-- Default runtime dependencies beyond the Python standard library and existing
-  research backend code. Ed25519 is available through the optional `signing`
-  extra.
+- Default runtime dependencies beyond the Python standard library. Ed25519 is
+  available through the optional `signing` extra.
 
 Install the optional signing extra before running Ed25519 demos/tests:
 
@@ -418,24 +396,6 @@ sh scripts/demo_agent_capsule_audit.sh
 
 The `--json` forms are intended for agent traces, CI checks, and governance
 logs. Human-readable output remains the default.
-
-Use the fixed research backend:
-
-```bash
-capsule pack payload.bin --codec lmcodec-fixed --out capsule.txt
-capsule verify capsule.txt
-```
-
-Use the self-contained n-gram research backend:
-
-```bash
-capsule pack payload.bin \
-  --codec lmcodec-ngram-v2 \
-  --model tests/fixtures/ngram_model_v1.json \
-  --out capsule.txt
-capsule inspect capsule.txt
-capsule verify capsule.txt
-```
 
 Create and verify an HMAC-signed capsule:
 

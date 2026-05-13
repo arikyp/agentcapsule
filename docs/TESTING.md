@@ -1,7 +1,7 @@
 # Testing
 
-The research backend relies on deterministic tests because the transport kernel is meant
-to produce identical text for identical payload, model, and settings.
+The test suite relies on deterministic checks because the transport kernel is
+meant to produce identical text for identical payload, model, and settings.
 
 The stress tests use fixed pseudo-random seeds from the Python standard library.
 They cover:
@@ -29,7 +29,7 @@ sh scripts/release_check.sh
 ```
 
 The Agent Capsule demo exercises pack, inspect, verify, unpack, scan JSON,
-codec registry output, the experimental research backends, and HMAC signing.
+codec registry output, and HMAC signing.
 `scripts/demo_agent_capsule_ed25519.sh` additionally exercises the optional
 `agentcapsule[signing]` Ed25519 prototype when `cryptography` is installed.
 `scripts/demo_agent_capsule_registry.sh` exercises local Ed25519 trust registry

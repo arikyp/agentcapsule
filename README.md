@@ -8,9 +8,8 @@ chat, tickets, prompts, email, GitHub issues, A2A messages, MIME attachments,
 and agent traces.
 
 The default capsule path is plain Base64 plus metadata, SHA256 verification,
-optional signatures, local policy checks, and sandbox unpacking. An experimental
-carrier-shaping backend exists for research, but it is not required for normal
-capsule use.
+optional signatures, local policy checks, and sandbox unpacking. The archived
+LMCodec research material is kept out of the main user path.
 
 ## Current Status
 
@@ -158,51 +157,6 @@ For a static observability view over handoff evidence, see
 For the central trust registry direction, see
 [docs/AGENT_CAPSULE_CENTRAL_TRUST_REGISTRY.md](docs/AGENT_CAPSULE_CENTRAL_TRUST_REGISTRY.md).
 
-## Research Backends
-
-The repository also contains experimental carrier-shaping backends used for
-research and regression coverage.
-
-The research path has five core layers:
-
-- Frame: wraps the payload as `magic || payload_len || crc32 || payload`.
-- Range coder: provides the reversible bit-to-symbol mapping.
-- LM probabilities: provide the next-token carrier distribution.
-- Quantizer: converts floating-point probabilities into deterministic integer
-  CDFs for range coding.
-- Armour: stores carrier text with version, model fingerprint, and settings in
-  a copy/paste-safe text block.
-
-Encoding:
-
-```text
-payload bytes
-  -> binary frame
-  -> framed bits
-  -> source RangeDecoder over framed bits
-  -> LM probabilities + shaping + quantization
-  -> carrier token choices
-  -> mirror RangeEncoder stopping check
-  -> armoured text
-```
-
-Decoding:
-
-```text
-armoured text
-  -> parse and check model fingerprint
-  -> carrier tokens
-  -> same LM probabilities + shaping + quantization
-  -> RangeEncoder reconstructs framed bits
-  -> frame parser validates magic, length, and CRC32
-  -> payload bytes
-```
-
-The stopping condition is intentionally conservative. Range decoders use
-lookahead, so encode does not stop based on a naive "all bits consumed" rule.
-Instead, the research carrier keeps a mirror range encoder and stops only when
-its finalized preview has the framed payload bits as a prefix.
-
 ## Verification
 
 ```bash
@@ -255,52 +209,10 @@ scripts/split_corpus.py \
   --filter-vocab
 ```
 
-Compare models with optional benchmark JSON:
-
-```bash
-scripts/compare_models.py \
-  --payload payload.bin \
-  --corpus examples/carrier_train_v2.txt \
-  --quality-text examples/carrier_heldout_v2.txt \
-  --json-out benchmark.json
-```
-
-Run a bounded V2 experiment config:
-
-```bash
-scripts/run_experiment.py experiments/configs/example_fixed.json
-```
-
 Optional PyTorch training/export is available in
 `scripts/train_transformer_torch.py`. PyTorch is only needed for that exporter;
 the exported JSON model loads through the dependency-free `TransformerLM`
 runtime.
-
-## Research Notes
-
-Probability shaping is intentionally separate from the models. Defaults are a
-no-op, while non-default shaping settings are written into the armour so decode
-can reproduce the same distribution. Uniform mixing and temperature are
-guardrails for keeping model distributions usable by the range coder; they are
-not a claim of natural language quality.
-
-Greedy previews are useful diagnostics, but they are not representative of
-encoded carrier text. The actual carrier is selected by payload bits
-through the range coder under the model distribution.
-
-Current demo metrics for `bytes(range(256))`:
-
-- Payload bytes: `256`
-- Carrier chars: `358`
-- Bits per carrier char: `5.989`
-- Base64 baseline chars: `344`
-
-Pinned Transformer fixture metrics for `bytes(range(256))` with
-`--shape-uniform-mix 0.80 --temperature 1.25`:
-
-- Payload bytes: `256`
-- Carrier chars: `362`
-- Bits per carrier char: `5.923`
 
 ## Documentation
 

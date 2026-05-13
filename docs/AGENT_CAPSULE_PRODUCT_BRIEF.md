@@ -2,9 +2,7 @@
 
 Agent Capsule Protocol is the product. It defines an inspectable,
 verifiable artifact-transfer and governance primitive for agent and
-text-native channels. Base64 is the primary V0 payload path. Experimental
-carrier-shaping backends exist for research, but they are not required for
-normal capsule use.
+text-native channels. Base64 is the primary V0 payload path.
 
 ## Product Thesis
 
@@ -50,10 +48,7 @@ CapsuleGuard / AI text channel governance:
 
 Near-term protocol layers:
 
-- backend registry for experimental quality-shaped carriers,
 - JSON policy loading,
-- smaller model reference modes for n-gram capsules when a local trust registry
-  exists,
 - public-key signed capsules with the optional Ed25519 prototype and local JSON
   trust registries; the design is tracked in
   [AGENT_CAPSULE_ED25519_DESIGN.md](AGENT_CAPSULE_ED25519_DESIGN.md),
@@ -66,8 +61,7 @@ Later product layers:
 - Slack, Jira, GitHub, and email integrations,
 - MCP server for agent workflows,
 - DLP and SIEM integrations,
-- web dashboard for policy and audit review,
-- Transformer capsule backend when it is practically stronger.
+- web dashboard for policy and audit review.
 
 V0 intentionally stays small: exact artifact to inspectable text capsule,
 verify, apply local policy, and unpack safely. The default path should feel
