@@ -24,3 +24,5 @@ This is the public roadmap for the current Agent Capsule direction.
   surfaces.
 - Optional policy and trust extensions for production deployment patterns.
 - Dashboard and registry ideas once the core protocol path is stable.
+- Tiny JS/TS reference implementation for `pack` and `verify` to support
+  browser-based agents, frontend tools, and cross-language test vectors.

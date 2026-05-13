@@ -46,8 +46,8 @@ chat, tickets, prompts, email, GitHub issues, A2A messages, MIME attachments,
 and agent traces.
 
 The default capsule path is plain Base64 plus metadata, SHA256 verification,
-optional signatures, local policy checks, and sandbox unpacking. Archived
-research material is kept out of the main user path.
+optional signatures, local policy checks, and sandbox unpacking. Historical
+research lives only in the archive, not the supported product surface.
 
 ## A2A Handoffs: Fixing The #1 Reliability Pain Point
 
@@ -109,14 +109,20 @@ Agent Capsule V0 is the product-facing layer in this repository.
 
 ## Agent Capsule Quickstart
 
-Use a virtual environment for local development:
+Use the PyPI package for a quick local try:
+
+```bash
+python3 -m pip install agentcapsule
+```
+
+This exposes the `agentcapsule` and `capsule` commands for Agent Capsules.
+
+For local development against the checkout:
 
 ```bash
 python3 -m venv .venv
 .venv/bin/python -m pip install -e .
 ```
-
-This exposes the `agentcapsule` and `capsule` commands for Agent Capsules.
 
 Create, inspect, verify, and unpack a Base64 capsule:
 
@@ -149,6 +155,46 @@ Emit a reference descriptor when the capsule will be stored out of band:
 agentcapsule reference capsule.txt \
   --uri https://example.test/capsules/capsule.txt \
   --json
+```
+
+Tiny symmetric encryption example:
+
+```bash
+python3 -m pip install "agentcapsule[signing]"
+python3 - <<'PY'
+from cryptography.fernet import Fernet
+
+key = Fernet.generate_key()
+cipher = Fernet(key)
+token = cipher.encrypt(b"handoff: exact payload")
+print(token.decode())
+print(cipher.decrypt(token).decode())
+PY
+```
+
+Framework integration snippets:
+
+```python
+# LangGraph-style gate: verify before unpacking.
+def ingest_capsule(path: str) -> dict:
+    import subprocess
+
+    subprocess.run(["agentcapsule", "verify", path], check=True)
+    subprocess.run(["agentcapsule", "unpack", path, "--out", "decoded"], check=True)
+    return {"payload_dir": "decoded"}
+```
+
+```python
+# OpenAI Agents-style handoff: attach a reference descriptor instead of raw JSON.
+handoff_message = {
+    "content": "Capsule reference attached for exact payload transfer.",
+    "attachments": [
+        {
+            "type": "agentcapsule.reference",
+            "uri": "https://capsules.example/handoff/abc123",
+        }
+    ],
+}
 ```
 
 For a shorter developer path, see [docs/QUICKSTART.md](docs/QUICKSTART.md).

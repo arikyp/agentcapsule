@@ -20,5 +20,6 @@ Supporting design notes:
 - [AGENT_HANDOFF_OBSERVABILITY_DASHBOARD_V0.md](AGENT_HANDOFF_OBSERVABILITY_DASHBOARD_V0.md)
 - [AGENT_TO_AGENT_HANDOFF_DEMO.md](AGENT_TO_AGENT_HANDOFF_DEMO.md)
 
-Legacy materials from the pre-Agent Capsule LMCodec research phase are archived
-under `docs/archive/lmcodec-research/`.
+Archived history:
+
+- [archive/lmcodec-research/README.md](archive/lmcodec-research/README.md): pre-Agent Capsule research archive.

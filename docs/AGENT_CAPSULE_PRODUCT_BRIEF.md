@@ -62,6 +62,8 @@ Later product layers:
 - MCP server for agent workflows,
 - DLP and SIEM integrations,
 - web dashboard for policy and audit review.
+- tiny JS/TS reference implementation for `pack` and `verify`, targeted at
+  browser-based agents and frontend tooling.
 
 V0 intentionally stays small: exact artifact to inspectable text capsule,
 verify, apply local policy, and unpack safely. The default path should feel
