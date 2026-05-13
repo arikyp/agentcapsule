@@ -4,9 +4,13 @@ All notable changes to Agent Capsule are tracked here.
 
 ## Unreleased
 
-- Clarified the public docs versioning so `V0` is the protocol label and
-  `V1` survives only as legacy fixture and verification terminology.
-- Bumped the package version to `0.1.1` for the next release.
+- Updated the README to lead with a one-sentence value prop, a 30-second
+  install-and-try flow, and a before/after capsule roundtrip example.
+- Added a short A2A handoff section showing how capsule reference mode fits
+  reliable agent-to-agent payload transfer.
+- Added explicit PyPI installation guidance to the install docs so
+  `pip install agentcapsule` is the primary trial path.
+- Bumped the package version to `0.1.2` for the next release.
 - Added GitHub Actions CI for Python 3.11, 3.12, and 3.13.
 - Added benchmark JSON output for comparison and shaping sweep scripts.
 - Added a documented benchmark JSON schema contract at

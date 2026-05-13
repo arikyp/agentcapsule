@@ -1,6 +1,44 @@
 # Agent Capsule
 
-[![CI](https://github.com/arikyp/agentcapsule/actions/workflows/ci.yml/badge.svg)](https://github.com/arikyp/agentcapsule/actions/workflows/ci.yml)
+[![Tests](https://github.com/arikyp/agentcapsule/actions/workflows/ci.yml/badge.svg)](https://github.com/arikyp/agentcapsule/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/agentcapsule.svg)](https://pypi.org/project/agentcapsule/)
+[![License](https://img.shields.io/pypi/l/agentcapsule.svg)](LICENSE)
+
+The missing shipping container for exact, verifiable payloads between agents
+over chat, email, tickets, and A2A messages.
+
+## Try In 30 Seconds
+
+```bash
+python3 -m pip install agentcapsule
+printf '{"task":"sync","items":[1,2,3]}\n' > payload.json
+agentcapsule pack payload.json --out capsule.txt
+agentcapsule verify capsule.txt
+agentcapsule unpack capsule.txt --out decoded
+cmp payload.json decoded/payload.json
+```
+
+Expected result:
+- `verify` reports `ok`
+- `cmp` prints nothing (byte-perfect roundtrip)
+
+## Before/After In Practice
+
+Before (free-form handoff text breaks machine parsing):
+
+```text
+{"task":"sync","items":[1,2,3
+```
+
+After (capsule-enveloped payload survives transport and verifies):
+
+```text
+-----BEGIN AGENT CAPSULE-----
+...payload+metadata+sha256...
+-----END AGENT CAPSULE-----
+verify: ok
+unpack: wrote decoded/payload.json
+```
 
 Agent Capsule Protocol V0 is an inspectable, verifiable artifact format for
 moving exact machine-readable payloads through agent and text-native channels:
@@ -10,6 +48,25 @@ and agent traces.
 The default capsule path is plain Base64 plus metadata, SHA256 verification,
 optional signatures, local policy checks, and sandbox unpacking. Archived
 research material is kept out of the main user path.
+
+## A2A Handoffs: Fixing The #1 Reliability Pain Point
+
+A2A messages often lose payload fidelity when exact machine-readable data is
+embedded directly in conversational fields. Capsules make that payload
+verifiable, and reference mode keeps A2A messages small while preserving trust.
+
+Reference-mode flow with A2A:
+
+```bash
+agentcapsule pack handoff.json --out handoff.capsule.txt
+agentcapsule reference handoff.capsule.txt \
+  --uri https://capsules.example/handoff/abc123 \
+  --json > handoff.reference.json
+```
+
+Attach `handoff.reference.json` to the A2A message body. Receiving agents fetch
+the referenced capsule, run `agentcapsule verify`, then `agentcapsule unpack`
+into a sandboxed output directory before execution.
 
 ## Current Status
 
@@ -98,6 +155,7 @@ For a shorter developer path, see [docs/QUICKSTART.md](docs/QUICKSTART.md).
 For installation packaging, see [docs/INSTALL.md](docs/INSTALL.md).
 For release and distribution planning, see
 [docs/RELEASE_DISTRIBUTION.md](docs/RELEASE_DISTRIBUTION.md).
+For the public roadmap, see [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Agent Capsule Commands
 
@@ -218,6 +276,13 @@ runtime.
 
 - [docs/README.md](docs/README.md): minimal docs index.
 - [docs/INSTALL.md](docs/INSTALL.md): install options including `pipx`.
+- [docs/ROADMAP.md](docs/ROADMAP.md): public roadmap and near-term priorities.
+
+## Community
+
+- Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
+- Use the issue templates for bug reports and feature requests.
+- Track roadmap items in [docs/ROADMAP.md](docs/ROADMAP.md).
 - [docs/QUICKSTART.md](docs/QUICKSTART.md): installed CLI usage.
 - [docs/AGENT_CAPSULE_PROTOCOL_V0.md](docs/AGENT_CAPSULE_PROTOCOL_V0.md):
   Agent Capsule V0 envelope, backends, verification, and scan flow.
