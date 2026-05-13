@@ -8,8 +8,8 @@ chat, tickets, prompts, email, GitHub issues, A2A messages, MIME attachments,
 and agent traces.
 
 The default capsule path is plain Base64 plus metadata, SHA256 verification,
-optional signatures, local policy checks, and sandbox unpacking. The archived
-LMCodec research material is kept out of the main user path.
+optional signatures, local policy checks, and sandbox unpacking. Archived
+research material is kept out of the main user path.
 
 ## Current Status
 
@@ -163,7 +163,7 @@ For the central trust registry direction, see
 PYTHONPATH=src python3 -m unittest discover -s tests
 ```
 
-Full V1 verification:
+Legacy V1 fixture verification:
 
 ```bash
 sh scripts/verify_v1.sh
@@ -231,7 +231,7 @@ runtime.
 - [CHANGELOG.md](CHANGELOG.md): release notes.
 - [LICENSE](LICENSE): Apache-2.0 terms.
 
-## Golden V1 Fixtures
+## Legacy V1 Fixtures
 
 All golden fixtures use payload `bytes(range(256))`.
 

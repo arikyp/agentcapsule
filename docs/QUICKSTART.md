@@ -105,7 +105,7 @@ Run:
 sh scripts/release_check.sh
 ```
 
-For lower-level V1 fixture verification:
+For lower-level legacy V1 fixture verification:
 
 ```bash
 sh scripts/verify_v1.sh

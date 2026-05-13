@@ -52,6 +52,8 @@ against the same handoff and writes `policy-matrix-report.json`.
 `scripts/demo_agent_handoff_dashboard.sh` renders a static HTML observability
 dashboard from the handoff, evaluator, and policy matrix artifacts.
 
+Legacy V1 fixture verification still lives in `scripts/verify_v1.sh`.
+
 Known edge cases represented in the tests:
 
 - Non-finite, negative, and zero probabilities are cleaned before quantization.

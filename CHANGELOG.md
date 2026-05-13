@@ -1,9 +1,12 @@
 # Changelog
 
-All notable changes to LMCodec are tracked here.
+All notable changes to Agent Capsule are tracked here.
 
 ## Unreleased
 
+- Clarified the public docs versioning so `V0` is the protocol label and
+  `V1` survives only as legacy fixture and verification terminology.
+- Bumped the package version to `0.1.1` for the next release.
 - Added GitHub Actions CI for Python 3.11, 3.12, and 3.13.
 - Added benchmark JSON output for comparison and shaping sweep scripts.
 - Added a documented benchmark JSON schema contract at
