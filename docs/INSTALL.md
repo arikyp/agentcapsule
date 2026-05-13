@@ -43,5 +43,4 @@ agentcapsule inspect --help
 agentcapsule verify --help
 ```
 
-The default path should be Base64 capsule packing and unpacking. Experimental
-research backends are not part of the primary install story.
+The default path should be Base64 capsule packing and unpacking.
