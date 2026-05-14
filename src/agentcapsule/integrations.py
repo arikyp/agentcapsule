@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import json
 import hashlib
+import os
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
-from agentcapsule.envelope import build_envelope, parse_envelope, verify_envelope
+from agentcapsule.envelope import BEGIN_MARKER, END_MARKER, build_envelope, parse_envelope, verify_envelope
 from agentcapsule.fetcher import fetch_capsule_text
 from agentcapsule.manifest import pack_path_with_manifest, unpack_payload
-from agentcapsule.scanner import scan_text
 
 if TYPE_CHECKING:
     from agentcapsule.envelope import CapsuleEnvelope
@@ -87,8 +87,7 @@ class AutoIngest:
         """Scan message history for inline capsule envelopes."""
         envelopes: list[CapsuleEnvelope] = []
         for message in messages:
-            result = scan_text(message)
-            envelopes.extend(result.envelopes)
+            envelopes.extend(_extract_inline_envelopes(message))
         return envelopes
 
     @staticmethod
@@ -97,7 +96,14 @@ class AutoIngest:
         fetched: list[dict[str, Any]] = []
         for message in messages:
             for descriptor in _extract_reference_descriptors(message):
-                capsule_text = fetch_capsule_text(descriptor["capsule_uri"])
+                allowed_schemes = {"http", "https"}
+                if os.getenv("AGENTCAPSULE_ALLOW_FILE_URI", "").lower() in {"1", "true", "yes"}:
+                    allowed_schemes.add("file")
+                capsule_text = fetch_capsule_text(
+                    descriptor["capsule_uri"],
+                    allowed_schemes=allowed_schemes,
+                    block_private_networks=False if "file" in allowed_schemes else True,
+                )
                 capsule_sha256 = hashlib.sha256(capsule_text.encode("utf-8")).hexdigest()
                 if capsule_sha256 != descriptor["capsule_sha256"]:
                     raise ValueError(f"capsule sha256 mismatch for {descriptor['capsule_uri']}")
@@ -158,3 +164,22 @@ def _extract_reference_descriptors(text: str) -> list[dict[str, str]]:
             }
         )
     return descriptors
+
+
+def _extract_inline_envelopes(text: str) -> list[CapsuleEnvelope]:
+    envelopes: list[CapsuleEnvelope] = []
+    offset = 0
+    while True:
+        begin = text.find(BEGIN_MARKER, offset)
+        if begin < 0:
+            break
+        end = text.find(END_MARKER, begin)
+        if end < 0:
+            break
+        block = text[begin : end + len(END_MARKER)]
+        try:
+            envelopes.append(parse_envelope(block))
+        except Exception:
+            pass
+        offset = end + len(END_MARKER)
+    return envelopes

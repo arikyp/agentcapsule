@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import ipaddress
+import os
 import socket
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -38,17 +39,35 @@ def fetch_capsule(
     block_private_networks: bool = DEFAULT_BLOCK_PRIVATE_NETWORKS,
 ) -> bytes:
     """Fetch a capsule from a URI and optionally verify its hash."""
+    allowed = allowed_schemes or DEFAULT_ALLOWED_SCHEMES
+    _validate_fetch_uri(
+        uri,
+        allowed_schemes=allowed,
+        block_private_networks=block_private_networks,
+    )
+    _validate_limits(timeout_seconds=timeout_seconds, max_download_bytes=max_download_bytes, max_redirects=max_redirects)
+
+    parsed = urlparse(uri)
+    if parsed.scheme == "file":
+        if os.getenv("AGENTCAPSULE_ALLOW_FILE_URI", "").lower() not in {"1", "true", "yes"}:
+            raise CapsuleVerificationError("file:// capsule_uri is disabled by default")
+        if not parsed.path:
+            raise CapsuleVerificationError("invalid file:// capsule_uri path")
+        data = Path(parsed.path).read_bytes()
+        if len(data) > max_download_bytes:
+            raise CapsuleVerificationError("fetched capsule exceeds max download size")
+        if expected_sha256:
+            actual = hashlib.sha256(data).hexdigest()
+            if actual != expected_sha256.lower():
+                raise CapsuleVerificationError("fetched capsule SHA256 mismatch")
+        if save_path:
+            save_path.write_bytes(data)
+        return data
+
     try:
         import httpx
     except ImportError:
         raise CapsuleVerificationError("fetching capsules requires installing agentcapsule[fetch]")
-
-    _validate_fetch_uri(
-        uri,
-        allowed_schemes=allowed_schemes or DEFAULT_ALLOWED_SCHEMES,
-        block_private_networks=block_private_networks,
-    )
-    _validate_limits(timeout_seconds=timeout_seconds, max_download_bytes=max_download_bytes, max_redirects=max_redirects)
 
     if resumable and save_path and save_path.exists():
         return _fetch_resumable(
@@ -201,6 +220,10 @@ def _validate_fetch_uri(uri: str, *, allowed_schemes: set[str], block_private_ne
     scheme = parsed.scheme.lower()
     if scheme not in allowed_schemes:
         raise CapsuleVerificationError(f"unsupported URI scheme: {scheme}")
+    if scheme == "file":
+        if not parsed.path:
+            raise CapsuleVerificationError("invalid file:// capsule_uri path")
+        return
     host = parsed.hostname
     if not host:
         raise CapsuleVerificationError("missing URI host")

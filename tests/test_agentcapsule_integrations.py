@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from agentcapsule.cli import main
+from agentcapsule.errors import CapsuleVerificationError
 from agentcapsule.envelope import build_envelope, render_envelope
 from agentcapsule.integrations import AutoIngest
 
@@ -50,7 +51,7 @@ class AgentCapsuleIntegrationsTests(unittest.TestCase):
             )
             descriptor = json.loads(reference_stdout)
             messages = [f"handoff\n{json.dumps(descriptor)}"]
-            with self.assertRaisesRegex(ValueError, "file:// capsule_uri is disabled by default"):
+            with self.assertRaisesRegex(CapsuleVerificationError, "unsupported URI scheme: file"):
                 AutoIngest.fetch_from_history(messages)
 
 
