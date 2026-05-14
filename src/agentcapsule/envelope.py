@@ -51,6 +51,9 @@ HEADER_ORDER = (
     "payload_sha256",
     "compression",
     "encryption",
+    "encryption_key_id",
+    "encryption_nonce",
+    "encryption_tag",
     "signature",
     "signature_key_id",
     "signature_public_key_fingerprint",
@@ -113,11 +116,14 @@ def build_envelope(
     policy_hints: dict[str, object] | None = None,
     delivery_mode: str = "inline",
     delivery_uri: str | None = None,
+    encryption_key: bytes | None = None,
+    encryption_key_id: str | None = None,
     extra_headers: dict[str, str] | None = None,
 ) -> CapsuleEnvelope:
     payload_sha256 = hashlib.sha256(payload).hexdigest()
     if manifest_files is None:
         manifest_files = [file_manifest_entry(filename or "payload.bin", payload)]
+    
     headers = {
         "capsule_version": CAPSULE_VERSION,
         "codec": codec,
@@ -142,6 +148,14 @@ def build_envelope(
         "created_at": created_at or utc_timestamp(),
         "policy": policy,
     }
+
+    if encryption_key:
+        from agentcapsule.encryption import encrypt_payload
+        payload, encryption_headers = encrypt_payload(payload, key=encryption_key)
+        headers.update(encryption_headers)
+        if encryption_key_id:
+            headers["encryption_key_id"] = encryption_key_id
+
     if extra_headers:
         headers.update(extra_headers)
     if filename:
@@ -192,8 +206,15 @@ def parse_envelope(text: str) -> CapsuleEnvelope:
     return CapsuleEnvelope(headers=headers, payload_text=payload_text)
 
 
-def verify_envelope(envelope: CapsuleEnvelope) -> bytes:
-    payload = envelope.decode_payload()
+def verify_envelope(envelope: CapsuleEnvelope, *, encryption_key: bytes | None = None) -> bytes:
+    if envelope.headers.get("encryption", "none") != "none":
+        if encryption_key is None:
+            raise CapsuleVerificationError("capsule is encrypted but no decryption key provided")
+        from agentcapsule.encryption import decrypt_payload
+        payload = decrypt_payload(envelope, key=encryption_key)
+    else:
+        payload = envelope.decode_payload()
+
     actual = hashlib.sha256(payload).hexdigest()
     expected = envelope.payload_sha256.lower()
     if actual != expected:
@@ -201,9 +222,9 @@ def verify_envelope(envelope: CapsuleEnvelope) -> bytes:
     return payload
 
 
-def parse_and_verify(text: str) -> tuple[CapsuleEnvelope, bytes]:
+def parse_and_verify(text: str, *, encryption_key: bytes | None = None) -> tuple[CapsuleEnvelope, bytes]:
     envelope = parse_envelope(text)
-    payload = verify_envelope(envelope)
+    payload = verify_envelope(envelope, encryption_key=encryption_key)
     return envelope, payload
 
 

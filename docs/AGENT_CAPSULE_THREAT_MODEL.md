@@ -5,18 +5,19 @@ workflows. It is designed to make machine-readable payloads visible,
 inspectable, policy-checkable, and byte-verifiable before a receiver unpacks
 them.
 
-V0 is not a complete trust system. It has SHA256 payload verification, optional
-HMAC-SHA256 shared-secret authenticity, optional Ed25519 public-key
-authenticity, local JSON trust registries, local policy checks, and scanner
-heuristics. Remote public-key identity, encryption, and SaaS governance
-integrations are future layers.
+V0 is not a complete trust system. It has SHA256 payload verification,
+AES-256-GCM authenticated encryption, optional HMAC-SHA256 shared-secret
+authenticity, optional Ed25519 public-key authenticity, identity-aware local
+JSON trust registries, local policy checks, and scanner heuristics. Remote
+public-key identity discovery and SaaS governance integrations are future
+layers.
 
 ## Assets
 
-- Exact payload bytes carried inside the capsule.
+- Plaintext or encrypted payload bytes carried inside the capsule.
 - Plaintext metadata used for routing, inspection, and policy decisions.
-- Local HMAC verification keys and Ed25519 public/private key files.
-- Decoded output directory and any downstream tools that may consume it.
+- Local HMAC/AES verification keys and Ed25519 public/private key files.
+- Decoded and decrypted output directory and any downstream tools that may consume it.
 - Audit events emitted by `capsule inspect`, `capsule verify`, and
   `capsule scan --json`.
 
@@ -25,6 +26,7 @@ integrations are future layers.
 - Text channel boundary: chat, ticket, email, issue, prompt, or trace text can
   be edited, copied, truncated, or surrounded by unrelated content.
 - Capsule parser boundary: metadata is untrusted until parsed and checked.
+- Payload decryption boundary: ciphertext is untrusted until GCM tag is verified.
 - Payload decode boundary: decoded bytes are untrusted even after hash
   verification.
 - Unpack boundary: files must be written only under the requested output
@@ -42,29 +44,51 @@ V0 assumes an attacker may:
 - attempt bundle path traversal,
 - send oversized payloads,
 - send unsigned capsules to a channel that expects signed capsules,
-- use a valid HMAC key if the shared secret is compromised,
+- use a valid HMAC or AES key if the shared secret is compromised,
 - sign with an Ed25519 key that is valid cryptographically but not trusted for
   the channel.
 
-V0 does not assume the text channel preserves confidentiality. Capsule payload
-text and metadata should be treated as readable by channel participants and
-intermediaries unless a future encryption layer is used.
+V0 provides confidentiality for the payload via AES-256-GCM encryption. However,
+capsule metadata (headers) remain plaintext and should be treated as readable by
+channel participants and intermediaries.
 
 ## Controls In V0
 
 - Envelope boundaries are explicit and easy to scan.
 - Required headers are rejected when missing.
+- **AES-256-GCM** provides authenticated encryption for payload bytes.
 - Payload bytes are decoded and checked against `payload_sha256`.
 - Local policy can require known codecs, hashes, content types, payload size
-  limits, sandbox unpacking, HMAC signature mode, and Ed25519 signature mode.
+  limits, sandbox unpacking, encryption, HMAC signature mode, and Ed25519
+  signature mode.
 - HMAC-SHA256 can authenticate a capsule when sender and receiver already share
   a secret.
 - Ed25519 can verify that a capsule was signed by a public key; trust in that
-  key comes from local policy and the local registry.
+  key comes from local policy and the **identity-aware local registry**.
 - Directory bundles reject absolute paths and `..` traversal.
 - Scanner findings flag explicit capsules, invalid capsules, malformed
   capsule-like blocks, base64-like dense text, long dense lines, and invisible
   Unicode.
+
+## Encryption (AES-256-GCM)
+
+Encryption in V0 provides:
+- confidentiality for the payload bytes,
+- integrity and authenticity via the GCM tag.
+
+It does not provide:
+- metadata confidentiality (headers are plaintext),
+- protection against a compromised encryption key.
+
+## Identity & Trust Registry
+
+The V0 registry supports:
+- mapping keys to organizations and domains,
+- key lifecycle management via `expires_at` and `revoked_at`.
+
+It does not yet support:
+- remote identity discovery (must be pre-distributed),
+- automatic revocation lists.
 
 ## HMAC-SHA256 Semantics
 

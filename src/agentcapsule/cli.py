@@ -74,11 +74,15 @@ def main(argv: list[str] | None = None) -> int:
         help="omit inline Ed25519 public key metadata from signed capsules",
     )
     pack_parser.add_argument("--signature-key-id", help="optional signature key identifier written to capsule metadata")
+    pack_parser.add_argument("--encrypt", choices=["aes-256-gcm"], help="encrypt the payload")
+    pack_parser.add_argument("--encryption-key-env", help="environment variable containing encryption key")
+    pack_parser.add_argument("--encryption-key-id", help="optional encryption key identifier written to capsule metadata")
 
     inspect_parser = subparsers.add_parser("inspect", help="inspect capsule metadata")
     inspect_parser.add_argument("capsule")
     inspect_parser.add_argument("--policy", help="JSON policy file")
     inspect_parser.add_argument("--key-env", help="environment variable containing HMAC-SHA256 verification key")
+    inspect_parser.add_argument("--encryption-key-env", help="environment variable containing decryption key")
     inspect_parser.add_argument("--ed25519-public-key", help="base64 raw Ed25519 public key file")
     inspect_parser.add_argument("--signature-registry", help="local JSON signature trust registry")
     inspect_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
@@ -88,6 +92,7 @@ def main(argv: list[str] | None = None) -> int:
     verify_parser.add_argument("capsule")
     verify_parser.add_argument("--policy", help="JSON policy file")
     verify_parser.add_argument("--key-env", help="environment variable containing HMAC-SHA256 verification key")
+    verify_parser.add_argument("--encryption-key-env", help="environment variable containing decryption key")
     verify_parser.add_argument("--ed25519-public-key", help="base64 raw Ed25519 public key file")
     verify_parser.add_argument("--signature-registry", help="local JSON signature trust registry")
     verify_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
@@ -98,6 +103,7 @@ def main(argv: list[str] | None = None) -> int:
     unpack_parser.add_argument("--out", required=True)
     unpack_parser.add_argument("--policy", help="JSON policy file")
     unpack_parser.add_argument("--key-env", help="environment variable containing HMAC-SHA256 verification key")
+    unpack_parser.add_argument("--encryption-key-env", help="environment variable containing decryption key")
     unpack_parser.add_argument("--ed25519-public-key", help="base64 raw Ed25519 public key file")
     unpack_parser.add_argument("--signature-registry", help="local JSON signature trust registry")
     unpack_parser.add_argument("--audit-json", action="store_true", help="emit structured audit event JSON")
@@ -138,6 +144,21 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "pack":
             if args.sign_key_env and args.sign_ed25519_key:
                 raise CapsuleError("choose only one signature mode")
+            
+            encryption_key = None
+            if args.encrypt:
+                if not args.encryption_key_env:
+                    raise CapsuleError(f"--encrypt {args.encrypt} requires --encryption-key-env")
+                # Try base64 decoding first, fall back to utf-8
+                raw_key = key_from_env(args.encryption_key_env)
+                import base64
+                try:
+                    encryption_key = base64.b64decode(raw_key, validate=True)
+                except Exception:
+                    encryption_key = raw_key
+                if len(encryption_key) != 32:
+                    raise CapsuleError("encryption key must be 32 bytes (raw or base64)")
+
             packed = pack_path_with_manifest(Path(args.path))
             envelope = build_envelope(
                 packed.payload,
@@ -152,6 +173,8 @@ def main(argv: list[str] | None = None) -> int:
                 policy_hints=_policy_hints_from_args(args),
                 delivery_mode=args.delivery_mode,
                 delivery_uri=args.delivery_uri,
+                encryption_key=encryption_key,
+                encryption_key_id=args.encryption_key_id,
                 extra_headers=_backend_headers_from_args(args),
             )
             if args.sign_key_env:
@@ -183,6 +206,7 @@ def main(argv: list[str] | None = None) -> int:
                 envelope,
                 policy,
                 key_env=args.key_env,
+                encryption_key_env=args.encryption_key_env,
                 ed25519_public_key=args.ed25519_public_key,
                 signature_registry=signature_registry,
             )
@@ -207,11 +231,12 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "verify":
             policy = _policy_from_args(args)
             signature_registry = _signature_registry_from_args(args)
+            encryption_key = _encryption_key_from_args(args)
             envelope = parse_envelope(Path(args.capsule).read_text(encoding="utf-8"))
             policy.check_metadata(envelope)
             trust = _verify_signature_from_args(envelope, args, signature_registry=signature_registry)
             policy.check_signature_trust(trust.status if trust else None)
-            payload = verify_envelope(envelope)
+            payload = verify_envelope(envelope, encryption_key=encryption_key)
             policy.check_payload(payload)
             result = {
                 "verification": "ok",
@@ -244,11 +269,12 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "unpack":
             policy = _policy_from_args(args)
             signature_registry = _signature_registry_from_args(args)
+            encryption_key = _encryption_key_from_args(args)
             envelope = parse_envelope(Path(args.capsule).read_text(encoding="utf-8"))
             policy.check_metadata(envelope)
             trust = _verify_signature_from_args(envelope, args, signature_registry=signature_registry)
             policy.check_signature_trust(trust.status if trust else None)
-            payload = verify_envelope(envelope)
+            payload = verify_envelope(envelope, encryption_key=encryption_key)
             policy.check_payload(payload)
             written = unpack_payload(
                 payload,
@@ -378,6 +404,21 @@ def main(argv: list[str] | None = None) -> int:
     return 2
 
 
+def _encryption_key_from_args(args: argparse.Namespace) -> bytes | None:
+    env_name = getattr(args, "encryption_key_env", None)
+    if not env_name:
+        return None
+    raw_key = key_from_env(env_name)
+    import base64
+    try:
+        encryption_key = base64.b64decode(raw_key, validate=True)
+    except Exception:
+        encryption_key = raw_key
+    if len(encryption_key) != 32:
+        raise CapsuleError("encryption key must be 32 bytes (raw or base64)")
+    return encryption_key
+
+
 def _policy_from_args(args: argparse.Namespace) -> CapsulePolicy:
     policy_path = getattr(args, "policy", None)
     if policy_path:
@@ -472,6 +513,7 @@ def _inspect_envelope(
     policy: CapsulePolicy,
     *,
     key_env: str | None = None,
+    encryption_key_env: str | None = None,
     ed25519_public_key: str | None = None,
     signature_registry: SignatureRegistry | None = None,
 ) -> dict[str, object]:
@@ -482,6 +524,7 @@ def _inspect_envelope(
         "capsule_manifest": envelope.capsule_manifest,
         "compression": envelope.headers["compression"],
         "encryption": envelope.headers["encryption"],
+        "encryption_key_id": envelope.headers.get("encryption_key_id"),
         "signature_mode": envelope.headers["signature"],
         "signature_key_id": envelope.headers.get("signature_key_id"),
         "signature_public_key_fingerprint": envelope.headers.get("signature_public_key_fingerprint"),
@@ -515,7 +558,17 @@ def _inspect_envelope(
                 verify_ed25519_signature(envelope, public_key_bytes=trust.public_key)
                 result["signature_verification"] = "ok"
             policy.check_signature_trust(trust.status if trust else None)
-        payload = verify_envelope(envelope)
+        
+        encryption_key = None
+        if encryption_key_env:
+            raw_key = key_from_env(encryption_key_env)
+            import base64
+            try:
+                encryption_key = base64.b64decode(raw_key, validate=True)
+            except Exception:
+                encryption_key = raw_key
+
+        payload = verify_envelope(envelope, encryption_key=encryption_key)
         policy.check_payload(payload)
         result["verification_status"] = "ok"
         result["payload_bytes"] = len(payload)
@@ -558,6 +611,10 @@ def _print_inspection(inspection: dict[str, object]) -> None:
         trust = inspection["signature_trust"]
         if isinstance(trust, dict):
             print(f"signature trust: {trust['status']} ({trust['reason']})")
+            if trust.get("organization"):
+                print(f"signature organization: {trust['organization']}")
+            if trust.get("domain"):
+                print(f"signature domain: {trust['domain']}")
     print(f"payload sha256: {inspection['payload_sha256']}")
     metadata = inspection["codec_metadata"]
     if isinstance(metadata, dict):
@@ -642,6 +699,7 @@ def _signature_trust(envelope, signature_registry: SignatureRegistry | None) -> 
     return signature_registry.resolve(
         key_id=envelope.headers.get("signature_key_id"),
         fingerprint=envelope.headers.get("signature_public_key_fingerprint"),
+        now_iso=envelope.headers.get("created_at"),
     )
 
 

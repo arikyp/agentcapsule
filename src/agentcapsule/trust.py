@@ -18,11 +18,15 @@ class TrustedKey:
     public_key: bytes | None = None
     status: str = "trusted"
     publisher: str | None = None
+    organization: str | None = None
+    domain: str | None = None
+    expires_at: str | None = None
+    revoked_at: str | None = None
     note: str | None = None
 
     @property
     def revoked(self) -> bool:
-        return self.status == "revoked"
+        return self.status == "revoked" or self.revoked_at is not None
 
 
 @dataclass(frozen=True)
@@ -32,6 +36,8 @@ class SignatureTrustResult:
     key_id: str | None = None
     fingerprint: str | None = None
     publisher: str | None = None
+    organization: str | None = None
+    domain: str | None = None
     public_key: bytes | None = None
 
     @property
@@ -45,6 +51,8 @@ class SignatureTrustResult:
             "key_id": self.key_id,
             "fingerprint": self.fingerprint,
             "publisher": self.publisher,
+            "organization": self.organization,
+            "domain": self.domain,
         }
 
 
@@ -52,7 +60,13 @@ class SignatureTrustResult:
 class SignatureRegistry:
     keys: tuple[TrustedKey, ...]
 
-    def resolve(self, *, key_id: str | None, fingerprint: str | None) -> SignatureTrustResult:
+    def resolve(
+        self,
+        *,
+        key_id: str | None,
+        fingerprint: str | None,
+        now_iso: str | None = None,
+    ) -> SignatureTrustResult:
         if not key_id and not fingerprint:
             return SignatureTrustResult("untrusted", "missing key id and fingerprint", key_id, fingerprint)
 
@@ -71,6 +85,19 @@ class SignatureRegistry:
                 key.key_id,
                 key.fingerprint,
                 key.publisher,
+                key.organization,
+                key.domain,
+                key.public_key,
+            )
+        if key.expires_at and now_iso and now_iso > key.expires_at:
+            return SignatureTrustResult(
+                "expired",
+                f"key expired at {key.expires_at}",
+                key.key_id,
+                key.fingerprint,
+                key.publisher,
+                key.organization,
+                key.domain,
                 key.public_key,
             )
         return SignatureTrustResult(
@@ -79,6 +106,8 @@ class SignatureRegistry:
             key.key_id,
             key.fingerprint,
             key.publisher,
+            key.organization,
+            key.domain,
             key.public_key,
         )
 
@@ -138,6 +167,18 @@ def _trusted_key_from_mapping(data: Any, base_dir: Path) -> TrustedKey:
     publisher = data.get("publisher")
     if publisher is not None and not isinstance(publisher, str):
         raise CapsulePolicyError("signature registry publisher must be a string")
+    organization = data.get("organization")
+    if organization is not None and not isinstance(organization, str):
+        raise CapsulePolicyError("signature registry organization must be a string")
+    domain = data.get("domain")
+    if domain is not None and not isinstance(domain, str):
+        raise CapsulePolicyError("signature registry domain must be a string")
+    expires_at = data.get("expires_at")
+    if expires_at is not None and not isinstance(expires_at, str):
+        raise CapsulePolicyError("signature registry expires_at must be a string")
+    revoked_at = data.get("revoked_at")
+    if revoked_at is not None and not isinstance(revoked_at, str):
+        raise CapsulePolicyError("signature registry revoked_at must be a string")
     note = data.get("note")
     if note is not None and not isinstance(note, str):
         raise CapsulePolicyError("signature registry note must be a string")
@@ -147,6 +188,10 @@ def _trusted_key_from_mapping(data: Any, base_dir: Path) -> TrustedKey:
         public_key=public_key,
         status=status,
         publisher=publisher,
+        organization=organization,
+        domain=domain,
+        expires_at=expires_at,
+        revoked_at=revoked_at,
         note=note,
     )
 

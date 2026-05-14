@@ -78,13 +78,15 @@ Agent Capsule V0 is the product-facing layer in this repository.
   counts.
 - HMAC-SHA256 and optional Ed25519 signatures are supported for authenticity
   experiments.
-- Local policy, scan, audit, and trust-registry flows are implemented.
-- Runtime Base64 capsule encode/decode is dependency-free Python.
+- Local policy, scan, audit, trust-registry, and encryption flows are implemented.
+- Runtime Base64 capsule encode/decode is dependency-free Python; encryption and signing require `cryptography`.
 
 ## What Works
 
 - Base64 capsule pack, inspect, verify, scan, and unpack flows.
-- Signed capsule verification with HMAC and optional Ed25519.
+- **AES-256-GCM authenticated encryption** for payload confidentiality.
+- Signed capsule verification with HMAC and **Ed25519 public-key identities**.
+- **Identity Registry** with support for organization binding, expiry, and revocation.
 - Agent handoff manifests with file inventory, requested capabilities, policy
   hints, and delivery mode.
 - Inline, attachment, and reference delivery metadata.
@@ -98,8 +100,7 @@ Agent Capsule V0 is the product-facing layer in this repository.
 
 ## What Does Not Yet Work
 
-- Production identity, central trust registry, or remote policy service.
-- Encryption or privacy.
+- Production identity (remote discovery), central trust registry, or remote policy service.
 - Large-file distribution as an inline capsule.
 - Semantically meaningful prose generation.
 - Steganography-grade secrecy.
@@ -121,7 +122,7 @@ For local development against the checkout:
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install -e .
+.venv/bin/python -m pip install -e ".[signing]"
 ```
 
 Create, inspect, verify, and unpack a Base64 capsule:
@@ -133,6 +134,19 @@ agentcapsule inspect capsule.txt
 agentcapsule verify capsule.txt
 agentcapsule unpack capsule.txt --out decoded
 cmp payload.txt decoded/payload.txt
+```
+
+Create an encrypted and signed handoff capsule:
+
+```bash
+export CAPSULE_KEY=$(openssl rand -base64 32)
+agentcapsule pack payload.txt \
+  --out capsule.txt \
+  --encrypt aes-256-gcm \
+  --encryption-key-env CAPSULE_KEY \
+  --sign-ed25519-key publisher.key
+
+agentcapsule inspect capsule.txt --encryption-key-env CAPSULE_KEY
 ```
 
 Create a signed handoff capsule with explicit manifest metadata:
