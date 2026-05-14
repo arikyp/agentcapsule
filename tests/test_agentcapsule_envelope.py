@@ -7,6 +7,12 @@ from agentcapsule.errors import CapsuleParseError, CapsuleVerificationError
 
 
 class AgentCapsuleEnvelopeTests(unittest.TestCase):
+    def _require_cryptography(self) -> None:
+        try:
+            import cryptography  # noqa: F401
+        except ImportError:
+            self.skipTest("cryptography not installed")
+
     def test_parse_valid_capsule(self) -> None:
         envelope = build_envelope(b"hello capsule", codec="base64", created_at="2026-05-09T00:00:00Z")
         text = render_envelope(envelope)
@@ -93,6 +99,7 @@ class AgentCapsuleEnvelopeTests(unittest.TestCase):
             verify_envelope(parsed)
 
     def test_encrypted_capsule_binds_metadata_with_aad(self) -> None:
+        self._require_cryptography()
         key = b"k" * 32
         envelope = build_envelope(
             b"payload",
@@ -110,6 +117,7 @@ class AgentCapsuleEnvelopeTests(unittest.TestCase):
             verify_envelope(tampered, encryption_key=key)
 
     def test_encrypted_capsule_binds_extra_headers_with_aad(self) -> None:
+        self._require_cryptography()
         key = b"k" * 32
         envelope = build_envelope(
             b"payload",

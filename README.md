@@ -234,6 +234,10 @@ handoff_message = {
 
 For a shorter developer path, see [docs/QUICKSTART.md](docs/QUICKSTART.md).
 For installation packaging, see [docs/INSTALL.md](docs/INSTALL.md).
+For Ed25519 signing design details, see
+[docs/AGENT_CAPSULE_ED25519_DESIGN.md](docs/AGENT_CAPSULE_ED25519_DESIGN.md).
+For audit event schema and examples, see
+[docs/AGENT_CAPSULE_AUDIT_LOG_V0.md](docs/AGENT_CAPSULE_AUDIT_LOG_V0.md).
 For release and distribution planning, see
 [docs/RELEASE_DISTRIBUTION.md](docs/RELEASE_DISTRIBUTION.md).
 For the public roadmap, see [docs/ROADMAP.md](docs/ROADMAP.md).
