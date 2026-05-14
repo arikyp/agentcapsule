@@ -84,6 +84,11 @@ def fetch_capsule(
     return data
 
 
+def fetch_capsule_text(uri: str, **kwargs) -> str:
+    """Fetch capsule bytes and decode UTF-8 text for envelope parsing."""
+    return fetch_capsule(uri, **kwargs).decode("utf-8")
+
+
 def _fetch_resumable(
     uri: str,
     path: Path,
