@@ -149,22 +149,27 @@ def build_envelope(
         "created_at": created_at or utc_timestamp(),
         "policy": policy,
     }
+    if filename:
+        headers["filename"] = filename
 
     if compression != "none":
         from agentcapsule.compression import compress_payload
         payload, _ = compress_payload(payload, mode=compression)
 
-    if encryption_key:
-        from agentcapsule.encryption import encrypt_payload
-        payload, encryption_headers = encrypt_payload(payload, key=encryption_key)
-        headers.update(encryption_headers)
-        if encryption_key_id:
-            headers["encryption_key_id"] = encryption_key_id
-
     if extra_headers:
         headers.update(extra_headers)
-    if filename:
-        headers["filename"] = filename
+
+    if encryption_key:
+        from agentcapsule.encryption import associated_data_for_headers, encrypt_payload
+        headers["encryption"] = "aes-256-gcm"
+        if encryption_key_id:
+            headers["encryption_key_id"] = encryption_key_id
+        payload, encryption_headers = encrypt_payload(
+            payload,
+            key=encryption_key,
+            associated_data=associated_data_for_headers(headers),
+        )
+        headers.update(encryption_headers)
     if CAPSULE_MANIFEST_HEADER in headers:
         parse_capsule_manifest(headers[CAPSULE_MANIFEST_HEADER])
     payload_text = get_backend(codec).encode(payload, headers=headers)

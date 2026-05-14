@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import json
 import os
 from typing import TYPE_CHECKING
 
@@ -21,7 +22,11 @@ ENCRYPTION_ENCODING_BASE64 = "base64"
 
 
 def encrypt_payload(
-    payload: bytes, *, key: bytes, mode: str = ENCRYPTION_AES_256_GCM
+    payload: bytes,
+    *,
+    key: bytes,
+    mode: str = ENCRYPTION_AES_256_GCM,
+    associated_data: bytes | None = None,
 ) -> tuple[bytes, dict[str, str]]:
     if mode != ENCRYPTION_AES_256_GCM:
         raise CapsuleVerificationError(f"unsupported encryption mode: {mode}")
@@ -31,10 +36,8 @@ def encrypt_payload(
 
     aesgcm = _cryptography_aesgcm()
     nonce = os.urandom(12)
-    # Note: cryptography's AESGCM.encrypt expects (nonce, data, associated_data)
-    # We don't use associated_data here because integrity is handled by the capsule signature.
-    # However, we could use headers as associated data if we wanted stronger binding.
-    ciphertext_with_tag = aesgcm(key).encrypt(nonce, payload, None)
+    # Bind ciphertext authenticity to selected envelope headers.
+    ciphertext_with_tag = aesgcm(key).encrypt(nonce, payload, associated_data)
     
     # AESGCM.encrypt returns ciphertext + tag (16 bytes)
     ciphertext = ciphertext_with_tag[:-16]
@@ -77,12 +80,31 @@ def decrypt_payload(envelope: CapsuleEnvelope, *, key: bytes) -> bytes:
         raise CapsuleVerificationError("invalid encryption tag length")
 
     ciphertext = envelope.decode_payload()
+    associated_data = associated_data_for_headers(envelope.headers)
     aesgcm = _cryptography_aesgcm()
     
     try:
-        return aesgcm(key).decrypt(nonce, ciphertext + tag, None)
+        return aesgcm(key).decrypt(nonce, ciphertext + tag, associated_data)
     except Exception as exc:
         raise CapsuleVerificationError("decryption failed (invalid key or tampered data)") from exc
+
+
+def associated_data_for_headers(headers: dict[str, str]) -> bytes:
+    """Return canonical associated data for AES-GCM header binding."""
+    excluded = {
+        ENCRYPTION_NONCE_HEADER,
+        ENCRYPTION_TAG_HEADER,
+        "signature",
+        "signature_key_id",
+        "signature_public_key_fingerprint",
+        "signature_public_key_encoding",
+        "signature_public_key",
+        "signature_value_encoding",
+        "signature_value",
+    }
+    aad_headers = {key: value for key, value in headers.items() if key not in excluded}
+    canonical = json.dumps(aad_headers, sort_keys=True, separators=(",", ":"))
+    return canonical.encode("utf-8")
 
 
 def _cryptography_aesgcm():
