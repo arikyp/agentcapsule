@@ -78,13 +78,15 @@ Agent Capsule V0 is the product-facing layer in this repository.
   counts.
 - HMAC-SHA256 and optional Ed25519 signatures are supported for authenticity
   experiments.
-- Local policy, scan, audit, trust-registry, and encryption flows are implemented.
-- Runtime Base64 capsule encode/decode is dependency-free Python; encryption and signing require `cryptography`.
+- Local policy, scan, audit, trust-registry, encryption, and scalability flows are implemented.
+- Runtime Base64 capsule encode/decode is dependency-free Python; encryption, signing, and compression require optional extras.
 
 ## What Works
 
 - Base64 capsule pack, inspect, verify, scan, and unpack flows.
 - **AES-256-GCM authenticated encryption** for payload confidentiality.
+- **Zstandard (zstd) compression** for efficient large-payload transfer.
+- **Resumable Reference Fetching** via CLI for reliable large-artifact distribution.
 - Signed capsule verification with HMAC and **Ed25519 public-key identities**.
 - **Identity Registry** with support for organization binding, expiry, and revocation.
 - Agent handoff manifests with file inventory, requested capabilities, policy
@@ -104,7 +106,6 @@ Agent Capsule V0 is the product-facing layer in this repository.
 - Large-file distribution as an inline capsule.
 - Semantically meaningful prose generation.
 - Steganography-grade secrecy.
-- Compression superiority over base64.
 - Large-file archival confidence.
 - GPU-scale model training in the runtime path.
 
@@ -122,7 +123,23 @@ For local development against the checkout:
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install -e ".[signing]"
+.venv/bin/python -m pip install -e ".[all]"
+```
+
+Create, inspect, verify, and unpack a compressed capsule:
+
+```bash
+printf 'large repetitive payload\n' > payload.txt
+agentcapsule pack payload.txt --out capsule.txt --compression zstd
+agentcapsule verify capsule.txt
+```
+
+Fetch and verify a capsule from a remote reference:
+
+```bash
+agentcapsule fetch --uri https://example.com/capsule.txt --sha256 <expected-hash> --out local.txt
+# Or via reference descriptor
+agentcapsule fetch --reference ref.json --out local.txt --resumable
 ```
 
 Create, inspect, verify, and unpack a Base64 capsule:

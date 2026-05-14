@@ -116,6 +116,7 @@ def build_envelope(
     policy_hints: dict[str, object] | None = None,
     delivery_mode: str = "inline",
     delivery_uri: str | None = None,
+    compression: str = "none",
     encryption_key: bytes | None = None,
     encryption_key_id: str | None = None,
     extra_headers: dict[str, str] | None = None,
@@ -141,13 +142,17 @@ def build_envelope(
             )
         ),
         "payload_sha256": payload_sha256,
-        "compression": "none",
+        "compression": compression,
         "encryption": "none",
         "signature": "none",
         "created_by": created_by,
         "created_at": created_at or utc_timestamp(),
         "policy": policy,
     }
+
+    if compression != "none":
+        from agentcapsule.compression import compress_payload
+        payload, _ = compress_payload(payload, mode=compression)
 
     if encryption_key:
         from agentcapsule.encryption import encrypt_payload
@@ -214,6 +219,10 @@ def verify_envelope(envelope: CapsuleEnvelope, *, encryption_key: bytes | None =
         payload = decrypt_payload(envelope, key=encryption_key)
     else:
         payload = envelope.decode_payload()
+
+    if envelope.headers.get("compression", "none") != "none":
+        from agentcapsule.compression import decompress_payload
+        payload = decompress_payload(payload, mode=envelope.headers["compression"])
 
     actual = hashlib.sha256(payload).hexdigest()
     expected = envelope.payload_sha256.lower()

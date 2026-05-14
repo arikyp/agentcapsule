@@ -39,6 +39,9 @@ capsule = "agentcapsule.cli:main"
 
 [project.optional-dependencies]
 signing = ["cryptography>=46,<47"]
+compression = ["zstandard>=0.23,<0.24"]
+fetch = ["httpx>=0.28,<0.29"]
+all = ["cryptography>=46,<47", "zstandard>=0.23,<0.24", "httpx>=0.28,<0.29"]
 
 [project.urls]
 Homepage = "https://github.com/arikyp/agentcapsule"

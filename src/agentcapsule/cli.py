@@ -53,6 +53,7 @@ def main(argv: list[str] | None = None) -> int:
     pack_parser.add_argument("--task-id", default="")
     pack_parser.add_argument("--delivery-mode", choices=DELIVERY_MODES, default="inline")
     pack_parser.add_argument("--delivery-uri", help="capsule URI for reference delivery mode")
+    pack_parser.add_argument("--compression", choices=["none", "zstd"], default="none")
     pack_parser.add_argument(
         "--requested-capability",
         action="append",
@@ -123,6 +124,13 @@ def main(argv: list[str] | None = None) -> int:
     reference_parser.add_argument("--uri", required=True, help="URI where the full capsule can be fetched")
     reference_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
 
+    fetch_parser = subparsers.add_parser("fetch", help="fetch a capsule from a URI or reference")
+    fetch_parser.add_argument("--uri", help="capsule URI to fetch")
+    fetch_parser.add_argument("--reference", help="JSON reference descriptor file")
+    fetch_parser.add_argument("--out", required=True, help="output path for the fetched capsule")
+    fetch_parser.add_argument("--sha256", help="expected capsule SHA256")
+    fetch_parser.add_argument("--resumable", action="store_true", help="attempt to resume a partial download")
+
     keys_parser = subparsers.add_parser("keys", help="manage local Agent Capsule signing keys")
     key_subparsers = keys_parser.add_subparsers(dest="key_command", required=True)
     key_generate = key_subparsers.add_parser("generate", help="generate a raw Ed25519 key pair")
@@ -173,6 +181,7 @@ def main(argv: list[str] | None = None) -> int:
                 policy_hints=_policy_hints_from_args(args),
                 delivery_mode=args.delivery_mode,
                 delivery_uri=args.delivery_uri,
+                compression=args.compression,
                 encryption_key=encryption_key,
                 encryption_key_id=args.encryption_key_id,
                 extra_headers=_backend_headers_from_args(args),
@@ -353,6 +362,22 @@ def main(argv: list[str] | None = None) -> int:
                         print(f"signature key id: {signature['key_id']}")
                     if signature.get("public_key_fingerprint"):
                         print(f"signature public key fingerprint: {signature['public_key_fingerprint']}")
+            return 0
+        if args.command == "fetch":
+            from agentcapsule.fetcher import fetch_capsule
+            uri = args.uri
+            expected_sha = args.sha256
+            if args.reference:
+                ref = json.loads(Path(args.reference).read_text(encoding="utf-8"))
+                if ref.get("reference_type") != "agent_capsule_reference":
+                    raise CapsuleError("invalid reference descriptor type")
+                uri = ref["capsule_uri"]
+                expected_sha = ref["capsule_sha256"]
+            if not uri:
+                raise CapsuleError("fetch requires --uri or --reference")
+            
+            fetch_capsule(uri, expected_sha256=expected_sha, save_path=Path(args.out), resumable=args.resumable)
+            print(f"capsule fetched: {args.out}")
             return 0
         if args.command == "keys":
             if args.key_command == "generate":
