@@ -4,6 +4,9 @@ All notable changes to Agent Capsule are tracked here.
 
 ## Unreleased
 
+- **Added AES-256-GCM authenticated encryption** for capsule payloads, providing confidentiality and integrity for sensitive artifacts.
+- **Evolved Identity & Trust Registry** to support organization/domain binding, key expiry (`expires_at`), and revocation (`revoked_at`).
+- **Integrated Ed25519 public-key identities** into the verification and inspection workflows, with support for identity-aware trust resolution.
 - Updated the README to lead with a one-sentence value prop, a 30-second
   install-and-try flow, and a before/after capsule roundtrip example.
 - Added a short A2A handoff section showing how capsule reference mode fits

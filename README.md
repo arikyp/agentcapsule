@@ -78,13 +78,17 @@ Agent Capsule V0 is the product-facing layer in this repository.
   counts.
 - HMAC-SHA256 and optional Ed25519 signatures are supported for authenticity
   experiments.
-- Local policy, scan, audit, and trust-registry flows are implemented.
-- Runtime Base64 capsule encode/decode is dependency-free Python.
+- Local policy, scan, audit, trust-registry, encryption, and scalability flows are implemented.
+- Runtime Base64 capsule encode/decode is dependency-free Python; encryption, signing, and compression require optional extras.
 
 ## What Works
 
 - Base64 capsule pack, inspect, verify, scan, and unpack flows.
-- Signed capsule verification with HMAC and optional Ed25519.
+- **AES-256-GCM authenticated encryption** for payload confidentiality.
+- **Zstandard (zstd) compression** for efficient large-payload transfer.
+- **Resumable Reference Fetching** via CLI for reliable large-artifact distribution.
+- Signed capsule verification with HMAC and **Ed25519 public-key identities**.
+- **Identity Registry** with support for organization binding, expiry, and revocation.
 - Agent handoff manifests with file inventory, requested capabilities, policy
   hints, and delivery mode.
 - Inline, attachment, and reference delivery metadata.
@@ -98,12 +102,10 @@ Agent Capsule V0 is the product-facing layer in this repository.
 
 ## What Does Not Yet Work
 
-- Production identity, central trust registry, or remote policy service.
-- Encryption or privacy.
+- Production identity (remote discovery), central trust registry, or remote policy service.
 - Large-file distribution as an inline capsule.
 - Semantically meaningful prose generation.
 - Steganography-grade secrecy.
-- Compression superiority over base64.
 - Large-file archival confidence.
 - GPU-scale model training in the runtime path.
 
@@ -112,7 +114,11 @@ Agent Capsule V0 is the product-facing layer in this repository.
 Use the PyPI package for a quick local try:
 
 ```bash
+# Core package (Base64 only, no dependencies)
 python3 -m pip install agentcapsule
+
+# With full security and scalability support (recommended)
+python3 -m pip install "agentcapsule[all]"
 ```
 
 This exposes the `agentcapsule` and `capsule` commands for Agent Capsules.
@@ -121,7 +127,23 @@ For local development against the checkout:
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install -e .
+.venv/bin/python -m pip install -e ".[all]"
+```
+
+Create, inspect, verify, and unpack a compressed capsule:
+
+```bash
+printf 'large repetitive payload\n' > payload.txt
+agentcapsule pack payload.txt --out capsule.txt --compression zstd
+agentcapsule verify capsule.txt
+```
+
+Fetch and verify a capsule from a remote reference:
+
+```bash
+agentcapsule fetch --uri https://example.com/capsule.txt --sha256 <expected-hash> --out local.txt
+# Or via reference descriptor
+agentcapsule fetch --reference ref.json --out local.txt --resumable
 ```
 
 Create, inspect, verify, and unpack a Base64 capsule:
@@ -133,6 +155,19 @@ agentcapsule inspect capsule.txt
 agentcapsule verify capsule.txt
 agentcapsule unpack capsule.txt --out decoded
 cmp payload.txt decoded/payload.txt
+```
+
+Create an encrypted and signed handoff capsule:
+
+```bash
+export CAPSULE_KEY=$(openssl rand -base64 32)
+agentcapsule pack payload.txt \
+  --out capsule.txt \
+  --encrypt aes-256-gcm \
+  --encryption-key-env CAPSULE_KEY \
+  --sign-ed25519-key publisher.key
+
+agentcapsule inspect capsule.txt --encryption-key-env CAPSULE_KEY
 ```
 
 Create a signed handoff capsule with explicit manifest metadata:
@@ -199,6 +234,10 @@ handoff_message = {
 
 For a shorter developer path, see [docs/QUICKSTART.md](docs/QUICKSTART.md).
 For installation packaging, see [docs/INSTALL.md](docs/INSTALL.md).
+For Ed25519 signing design details, see
+[docs/AGENT_CAPSULE_ED25519_DESIGN.md](docs/AGENT_CAPSULE_ED25519_DESIGN.md).
+For audit event schema and examples, see
+[docs/AGENT_CAPSULE_AUDIT_LOG_V0.md](docs/AGENT_CAPSULE_AUDIT_LOG_V0.md).
 For release and distribution planning, see
 [docs/RELEASE_DISTRIBUTION.md](docs/RELEASE_DISTRIBUTION.md).
 For the public roadmap, see [docs/ROADMAP.md](docs/ROADMAP.md).

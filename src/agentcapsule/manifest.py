@@ -71,13 +71,22 @@ def pack_directory_with_manifest(root: Path) -> tuple[bytes, list[dict[str, obje
         for filename in sorted(filenames):
             file_path = Path(current) / filename
             rel = file_path.relative_to(root).as_posix()
+            
+            # Read only for hashing and manifest
             data = file_path.read_bytes()
-            manifest_files.append(file_manifest_entry(rel, data))
+            sha256 = hashlib.sha256(data).hexdigest()
+            manifest_files.append(
+                {
+                    "path": rel,
+                    "sha256": sha256,
+                    "bytes": len(data),
+                }
+            )
             files.append(
                 {
                     "path": rel,
                     "size": len(data),
-                    "sha256": hashlib.sha256(data).hexdigest(),
+                    "sha256": sha256,
                     "content_base64": base64.b64encode(data).decode("ascii"),
                 }
             )

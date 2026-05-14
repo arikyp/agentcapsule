@@ -7,6 +7,12 @@ from agentcapsule.errors import CapsuleParseError, CapsuleVerificationError
 
 
 class AgentCapsuleEnvelopeTests(unittest.TestCase):
+    def _require_cryptography(self) -> None:
+        try:
+            import cryptography  # noqa: F401
+        except ImportError:
+            self.skipTest("cryptography not installed")
+
     def test_parse_valid_capsule(self) -> None:
         envelope = build_envelope(b"hello capsule", codec="base64", created_at="2026-05-09T00:00:00Z")
         text = render_envelope(envelope)
@@ -91,6 +97,37 @@ class AgentCapsuleEnvelopeTests(unittest.TestCase):
 
         with self.assertRaisesRegex(CapsuleVerificationError, "SHA256 mismatch"):
             verify_envelope(parsed)
+
+    def test_encrypted_capsule_binds_metadata_with_aad(self) -> None:
+        self._require_cryptography()
+        key = b"k" * 32
+        envelope = build_envelope(
+            b"payload",
+            encryption_key=key,
+            filename="payload.bin",
+            created_by="agent-a",
+            extra_headers={"lmcodec_model_type": "ngram-v1"},
+        )
+        parsed = parse_envelope(render_envelope(envelope))
+        self.assertEqual(verify_envelope(parsed, encryption_key=key), b"payload")
+
+        tampered_text = render_envelope(envelope).replace("created_by: agent-a", "created_by: agent-b", 1)
+        tampered = parse_envelope(tampered_text)
+        with self.assertRaisesRegex(CapsuleVerificationError, "decryption failed"):
+            verify_envelope(tampered, encryption_key=key)
+
+    def test_encrypted_capsule_binds_extra_headers_with_aad(self) -> None:
+        self._require_cryptography()
+        key = b"k" * 32
+        envelope = build_envelope(
+            b"payload",
+            encryption_key=key,
+            extra_headers={"lmcodec_model_type": "ngram-v1"},
+        )
+        tampered_text = render_envelope(envelope).replace("lmcodec_model_type: ngram-v1", "lmcodec_model_type: ngram-v2", 1)
+        tampered = parse_envelope(tampered_text)
+        with self.assertRaisesRegex(CapsuleVerificationError, "decryption failed"):
+            verify_envelope(tampered, encryption_key=key)
 
 
 if __name__ == "__main__":
