@@ -396,6 +396,45 @@ class AgentCapsuleCliTests(unittest.TestCase):
             self.assertEqual(payload["codec_metadata"]["lmcodec_model_type"], "ngram-v1")
             self.assertEqual(payload["codec_metadata"]["lmcodec_model_encoding"], "inline-base64-json")
 
+    def test_a2a_scan_json_detects_inline_capsule(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            text_file = Path(tmp) / "message.txt"
+            text_file.write_text("handoff\n" + render_envelope(build_envelope(b"payload")), encoding="utf-8")
+
+            status, stdout, stderr = _capture_cli(["a2a", "scan", "--text-file", str(text_file), "--json"])
+
+            self.assertEqual(status, 0)
+            self.assertEqual(stderr, "")
+            payload = json.loads(stdout)
+            self.assertEqual(payload["inline_capsules"], 1)
+            self.assertEqual(payload["referenced_capsules"], 0)
+
+    def test_a2a_fetch_all_json_fetches_reference_descriptor(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            payload_file = root / "payload.txt"
+            payload_file.write_text("exact state", encoding="utf-8")
+            capsule_file = root / "capsule.txt"
+            self.assertEqual(_run_cli(["pack", str(payload_file), "--out", str(capsule_file)]), 0)
+
+            status, stdout, stderr = _capture_cli(
+                ["reference", str(capsule_file), "--uri", capsule_file.resolve().as_uri(), "--json"]
+            )
+            self.assertEqual(status, 0)
+            self.assertEqual(stderr, "")
+            descriptor = json.loads(stdout)
+
+            message_file = root / "message.txt"
+            message_file.write_text(f"handoff\n{json.dumps(descriptor)}\n", encoding="utf-8")
+            status, stdout, stderr = _capture_cli(["a2a", "fetch-all", "--text-file", str(message_file), "--json"])
+
+            self.assertEqual(status, 0)
+            self.assertEqual(stderr, "")
+            payload = json.loads(stdout)
+            self.assertEqual(payload["fetched_capsules"], 1)
+            self.assertEqual(payload["references"][0]["capsule_uri"], capsule_file.resolve().as_uri())
+            self.assertEqual(payload["references"][0]["payload_bytes"], len(b"exact state"))
+
 
 def _run_cli(argv: list[str]) -> int:
     with redirect_stdout(StringIO()), redirect_stderr(StringIO()):

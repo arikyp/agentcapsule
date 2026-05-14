@@ -12,6 +12,7 @@ from agentcapsule.audit import audit_event, disposition_from_risk, disposition_f
 from agentcapsule.backends import known_codecs, ngram_v2_headers_from_model_path
 from agentcapsule.envelope import build_envelope, parse_envelope, render_envelope, verify_envelope
 from agentcapsule.errors import CapsuleError
+from agentcapsule.integrations import AutoIngest
 from agentcapsule.manifest import DEFAULT_CAPSULE_TYPE, DELIVERY_MODES, pack_path_with_manifest, unpack_payload
 from agentcapsule.policy import DEFAULT_POLICY, CapsulePolicy, load_policy, policy_to_dict
 from agentcapsule.registry import list_codecs
@@ -130,6 +131,15 @@ def main(argv: list[str] | None = None) -> int:
     fetch_parser.add_argument("--out", required=True, help="output path for the fetched capsule")
     fetch_parser.add_argument("--sha256", help="expected capsule SHA256")
     fetch_parser.add_argument("--resumable", action="store_true", help="attempt to resume a partial download")
+
+    a2a_parser = subparsers.add_parser("a2a", help="Agent-to-Agent handoff helpers")
+    a2a_subparsers = a2a_parser.add_subparsers(dest="a2a_command", required=True)
+    a2a_scan = a2a_subparsers.add_parser("scan", help="scan a file/stream for inline capsules and references")
+    a2a_scan.add_argument("--text-file", help="text file path to scan; defaults to stdin")
+    a2a_scan.add_argument("--json", action="store_true", help="emit machine-readable JSON")
+    a2a_fetch = a2a_subparsers.add_parser("fetch-all", help="fetch all referenced capsules from file/stream")
+    a2a_fetch.add_argument("--text-file", help="text file path to scan; defaults to stdin")
+    a2a_fetch.add_argument("--json", action="store_true", help="emit machine-readable JSON")
 
     keys_parser = subparsers.add_parser("keys", help="manage local Agent Capsule signing keys")
     key_subparsers = keys_parser.add_subparsers(dest="key_command", required=True)
@@ -379,6 +389,36 @@ def main(argv: list[str] | None = None) -> int:
             fetch_capsule(uri, expected_sha256=expected_sha, save_path=Path(args.out), resumable=args.resumable)
             print(f"capsule fetched: {args.out}")
             return 0
+
+        if args.command == "a2a":
+            text = Path(args.text_file).read_text(encoding="utf-8") if args.text_file else sys.stdin.read()
+            messages = [text]
+            if args.a2a_command == "scan":
+                envelopes = AutoIngest.scan_history(messages)
+                fetched = AutoIngest.fetch_from_history(messages)
+                payload = {
+                    "inline_capsules": len(envelopes),
+                    "referenced_capsules": len(fetched),
+                    "references": fetched,
+                }
+                if args.json:
+                    _print_json(payload)
+                else:
+                    print(f"inline capsules: {payload['inline_capsules']}")
+                    print(f"referenced capsules: {payload['referenced_capsules']}")
+                    for ref in fetched:
+                        print(f"reference: {ref['capsule_uri']} ({ref['payload_bytes']} bytes)")
+                return 0
+            if args.a2a_command == "fetch-all":
+                fetched = AutoIngest.fetch_from_history(messages)
+                payload = {"fetched_capsules": len(fetched), "references": fetched}
+                if args.json:
+                    _print_json(payload)
+                else:
+                    print(f"fetched capsules: {payload['fetched_capsules']}")
+                    for ref in fetched:
+                        print(f"fetched: {ref['capsule_uri']} ({ref['payload_bytes']} bytes)")
+                return 0
         if args.command == "keys":
             if args.key_command == "generate":
                 private_path = Path(args.private_key)

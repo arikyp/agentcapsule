@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 import os
+import json
+import hashlib
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
+from urllib.parse import urlparse
+from urllib.request import urlopen
 
 from agentcapsule.envelope import build_envelope, parse_envelope, verify_envelope
 from agentcapsule.manifest import pack_path_with_manifest, unpack_payload
+from agentcapsule.scanner import scan_text
 
 if TYPE_CHECKING:
     from agentcapsule.envelope import CapsuleEnvelope
@@ -74,3 +79,92 @@ class LangGraphIntegration:
             Path(out_dir),
             filename=envelope.headers.get("filename"),
         )
+
+
+class AutoIngest:
+    """Helpers to ingest inline and reference capsules from message history."""
+
+    @staticmethod
+    def scan_history(messages: list[str]) -> list[CapsuleEnvelope]:
+        """Scan message history for inline capsule envelopes."""
+        envelopes: list[CapsuleEnvelope] = []
+        for message in messages:
+            result = scan_text(message)
+            envelopes.extend(result.envelopes)
+        return envelopes
+
+    @staticmethod
+    def fetch_from_history(messages: list[str]) -> list[dict[str, Any]]:
+        """Fetch capsule references from history and return verified summaries."""
+        fetched: list[dict[str, Any]] = []
+        for message in messages:
+            for descriptor in _extract_reference_descriptors(message):
+                capsule_text = _fetch_capsule_text(descriptor["capsule_uri"])
+                capsule_sha256 = hashlib.sha256(capsule_text.encode("utf-8")).hexdigest()
+                if capsule_sha256 != descriptor["capsule_sha256"]:
+                    raise ValueError(f"capsule sha256 mismatch for {descriptor['capsule_uri']}")
+                envelope = parse_envelope(capsule_text)
+                payload = verify_envelope(envelope)
+                if envelope.payload_sha256 != descriptor["payload_sha256"]:
+                    raise ValueError(f"payload sha256 mismatch for {descriptor['capsule_uri']}")
+                fetched.append(
+                    {
+                        "capsule_uri": descriptor["capsule_uri"],
+                        "capsule_sha256": capsule_sha256,
+                        "payload_sha256": envelope.payload_sha256,
+                        "content_type": envelope.content_type,
+                        "codec": envelope.codec,
+                        "capsule_manifest": envelope.capsule_manifest,
+                        "payload_bytes": len(payload),
+                    }
+                )
+        return fetched
+
+    @staticmethod
+    def ingest_thread(messages: list[str]) -> dict[str, Any]:
+        """Convenience method returning both inline and reference ingestion results."""
+        return {
+            "inline_envelopes": AutoIngest.scan_history(messages),
+            "fetched_references": AutoIngest.fetch_from_history(messages),
+        }
+
+
+def _extract_reference_descriptors(text: str) -> list[dict[str, str]]:
+    descriptors: list[dict[str, str]] = []
+    decoder = json.JSONDecoder()
+    index = 0
+    while index < len(text):
+        start = text.find("{", index)
+        if start < 0:
+            break
+        try:
+            obj, end = decoder.raw_decode(text[start:])
+        except json.JSONDecodeError:
+            index = start + 1
+            continue
+        index = start + end
+        if not isinstance(obj, dict):
+            continue
+        if obj.get("reference_type") != "agent_capsule_reference":
+            continue
+        capsule_uri = obj.get("capsule_uri")
+        capsule_sha256 = obj.get("capsule_sha256")
+        payload_sha256 = obj.get("payload_sha256")
+        if not isinstance(capsule_uri, str) or not isinstance(capsule_sha256, str) or not isinstance(payload_sha256, str):
+            continue
+        descriptors.append(
+            {
+                "capsule_uri": capsule_uri,
+                "capsule_sha256": capsule_sha256,
+                "payload_sha256": payload_sha256,
+            }
+        )
+    return descriptors
+
+
+def _fetch_capsule_text(uri: str) -> str:
+    parsed = urlparse(uri)
+    if parsed.scheme in {"http", "https", "file"}:
+        with urlopen(uri, timeout=15) as response:  # nosec B310 - explicit URI scheme allowlist
+            return response.read().decode("utf-8")
+    raise ValueError(f"unsupported capsule_uri scheme: {parsed.scheme}")

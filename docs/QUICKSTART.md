@@ -87,6 +87,20 @@ agentcapsule reference /tmp/reference.capsule.txt \
 Receivers must fetch the full capsule and verify its `capsule_sha256`,
 payload hash, and signature. The descriptor is not authoritative.
 
+## A2A Handoff
+
+Scan a message transcript for inline capsules and reference descriptors:
+
+```bash
+agentcapsule a2a scan --text-file /tmp/agent-thread.txt --json
+```
+
+Fetch and verify every referenced capsule descriptor in a transcript:
+
+```bash
+agentcapsule a2a fetch-all --text-file /tmp/agent-thread.txt --json
+```
+
 ## Sign A Capsule
 
 ```bash
