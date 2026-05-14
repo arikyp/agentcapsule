@@ -1,53 +1,71 @@
-# Agent Capsule
+# Agent Capsule 📦
 
 [![Tests](https://github.com/arikyp/agentcapsule/actions/workflows/ci.yml/badge.svg)](https://github.com/arikyp/agentcapsule/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/agentcapsule.svg)](https://pypi.org/project/agentcapsule/)
+[![Python Version](https://img.shields.io/pypi/pyversions/agentcapsule.svg)](https://pypi.org/project/agentcapsule/)
 [![License](https://img.shields.io/pypi/l/agentcapsule.svg)](LICENSE)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/arikyp/agentcapsule/graphs/commit-activity)
 
-The missing shipping container for exact, verifiable payloads between agents
-over chat, email, tickets, and A2A messages.
+**The missing shipping container for exact, verifiable payloads between agents.** 
+Secure, compressed, and identity-aware artifact transfer over chat, email, tickets, and A2A messages.
 
-## Try In 30 Seconds
+## Why Agent Capsule?
+
+In multi-agent systems, "handoffs" often fail because LLMs lose payload fidelity when embedding data directly in conversation. Agent Capsule provides a standardized, machine-readable envelope that ensures:
+
+- **Byte-Perfect Fidelity:** SHA256-verified roundtrips.
+- **Confidentiality:** AES-256-GCM authenticated encryption.
+- **Authenticity:** Ed25519 public-key identities and organization-aware trust.
+- **Efficiency:** Zstandard compression for large payloads.
+- **Interoperability:** Plug-and-play integrations for major frameworks.
+
+---
+
+## ⚡ Try In 30 Seconds
 
 ```bash
-python3 -m pip install agentcapsule
-printf '{"task":"sync","items":[1,2,3]}\n' > payload.json
-agentcapsule pack payload.json --out capsule.txt
-agentcapsule verify capsule.txt
-agentcapsule unpack capsule.txt --out decoded
-cmp payload.json decoded/payload.json
+# Install with full security and compression support
+pip install "agentcapsule[all]"
+
+# Pack a directory into a secure, compressed capsule
+agentcapsule pack ./workspace --out handoff.capsule.txt \
+  --encrypt aes-256-gcm \
+  --compression zstd
+
+# Verify and unpack
+agentcapsule verify handoff.capsule.txt
+agentcapsule unpack handoff.capsule.txt --out ./received
 ```
 
-Expected result:
-- `verify` reports `ok`
-- `cmp` prints nothing (byte-perfect roundtrip)
+---
 
-## Before/After In Practice
+## 🤝 Framework Integrations
 
-Before (free-form handoff text breaks machine parsing):
+### LangGraph
+Agent Capsule makes LangGraph handoffs reliable and secure.
 
-```text
-{"task":"sync","items":[1,2,3
+```python
+from agentcapsule.integrations import LangGraphIntegration
+
+# 1. Create a handoff message from a local workspace
+handoff_msg = LangGraphIntegration.create_handoff_message(
+    path="./agent_a_workspace",
+    created_by="researcher_agent",
+    encryption_key=MY_SECRET_KEY
+)
+
+# 2. In the receiving node, unpack the payload
+files = LangGraphIntegration.unpack_handoff(
+    message_content=state["messages"][-1].content,
+    out_dir="./agent_b_workspace",
+    encryption_key=MY_SECRET_KEY
+)
 ```
 
-After (capsule-enveloped payload survives transport and verifies):
+### CrewAI & LlamaIndex
+More official connectors for CrewAI, LlamaIndex, and AutoGen are coming soon. See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
 
-```text
------BEGIN AGENT CAPSULE-----
-...payload+metadata+sha256...
------END AGENT CAPSULE-----
-verify: ok
-unpack: wrote decoded/payload.json
-```
-
-Agent Capsule Protocol V0 is an inspectable, verifiable artifact format for
-moving exact machine-readable payloads through agent and text-native channels:
-chat, tickets, prompts, email, GitHub issues, A2A messages, MIME attachments,
-and agent traces.
-
-The default capsule path is plain Base64 plus metadata, SHA256 verification,
-optional signatures, local policy checks, and sandbox unpacking. Historical
-research lives only in the archive, not the supported product surface.
+---
 
 ## A2A Handoffs: Fixing The #1 Reliability Pain Point
 
