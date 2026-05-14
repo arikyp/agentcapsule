@@ -114,7 +114,11 @@ Agent Capsule V0 is the product-facing layer in this repository.
 Use the PyPI package for a quick local try:
 
 ```bash
+# Core package (Base64 only, no dependencies)
 python3 -m pip install agentcapsule
+
+# With full security and scalability support (recommended)
+python3 -m pip install "agentcapsule[all]"
 ```
 
 This exposes the `agentcapsule` and `capsule` commands for Agent Capsules.
