@@ -426,7 +426,8 @@ class AgentCapsuleCliTests(unittest.TestCase):
 
             message_file = root / "message.txt"
             message_file.write_text(f"handoff\n{json.dumps(descriptor)}\n", encoding="utf-8")
-            status, stdout, stderr = _capture_cli(["a2a", "fetch-all", "--text-file", str(message_file), "--json"])
+            with patch.dict(os.environ, {"AGENTCAPSULE_ALLOW_FILE_URI": "1"}, clear=False):
+                status, stdout, stderr = _capture_cli(["a2a", "fetch-all", "--text-file", str(message_file), "--json"])
 
             self.assertEqual(status, 0)
             self.assertEqual(stderr, "")

@@ -5,10 +5,12 @@ from __future__ import annotations
 import os
 import json
 import hashlib
+import ipaddress
+import socket
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
 from urllib.parse import urlparse
-from urllib.request import urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from agentcapsule.envelope import build_envelope, parse_envelope, verify_envelope
 from agentcapsule.manifest import pack_path_with_manifest, unpack_payload
@@ -164,7 +166,63 @@ def _extract_reference_descriptors(text: str) -> list[dict[str, str]]:
 
 def _fetch_capsule_text(uri: str) -> str:
     parsed = urlparse(uri)
-    if parsed.scheme in {"http", "https", "file"}:
-        with urlopen(uri, timeout=15) as response:  # nosec B310 - explicit URI scheme allowlist
-            return response.read().decode("utf-8")
+    if parsed.scheme in {"http", "https"}:
+        _reject_private_host(parsed.hostname or "")
+        return _fetch_http_https(uri)
+    if parsed.scheme == "file":
+        if os.getenv("AGENTCAPSULE_ALLOW_FILE_URI", "").lower() not in {"1", "true", "yes"}:
+            raise ValueError("file:// capsule_uri is disabled by default")
+        if not parsed.path:
+            raise ValueError("invalid file:// capsule_uri path")
+        data = Path(parsed.path).read_bytes()
+        _enforce_size_limit(len(data))
+        return data.decode("utf-8")
     raise ValueError(f"unsupported capsule_uri scheme: {parsed.scheme}")
+
+
+def _fetch_http_https(uri: str) -> str:
+    request = Request(uri, method="GET")
+    opener = build_opener(_RedirectPolicyHandler)
+    with opener.open(request, timeout=15) as response:
+        total = 0
+        chunks: list[bytes] = []
+        while True:
+            chunk = response.read(64 * 1024)
+            if not chunk:
+                break
+            total += len(chunk)
+            _enforce_size_limit(total)
+            chunks.append(chunk)
+        return b"".join(chunks).decode("utf-8")
+
+
+def _enforce_size_limit(size_bytes: int) -> None:
+    if size_bytes > 32 * 1024 * 1024:
+        raise ValueError("capsule download exceeds max size")
+
+
+def _reject_private_host(hostname: str) -> None:
+    if not hostname:
+        raise ValueError("missing capsule URI host")
+    infos = socket.getaddrinfo(hostname, None)
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast:
+            raise ValueError(f"blocked private/local capsule URI host: {hostname}")
+
+
+class _RedirectPolicyHandler(HTTPRedirectHandler):
+    _max_redirects = 3
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        count = getattr(req, "_redirect_count", 0) + 1
+        if count > self._max_redirects:
+            raise ValueError("too many redirects while fetching capsule")
+        new_req = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if new_req is not None:
+            setattr(new_req, "_redirect_count", count)
+            parsed = urlparse(newurl)
+            if parsed.scheme not in {"http", "https"}:
+                raise ValueError("redirected to unsupported scheme")
+            _reject_private_host(parsed.hostname or "")
+        return new_req
