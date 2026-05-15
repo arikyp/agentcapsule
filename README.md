@@ -68,6 +68,21 @@ Attach `handoff.reference.json` to the A2A message body. Receiving agents fetch
 the referenced capsule, run `agentcapsule verify`, then `agentcapsule unpack`
 into a sandboxed output directory before execution.
 
+Receiver Kit (one command / one function):
+
+```bash
+agentcapsule ingest thread.txt --out sandbox --json
+```
+
+```python
+from agentcapsule import ingest_messages
+
+result = ingest_messages(messages=thread_messages, out_dir="./sandbox", policy="./policy.json")
+print(result.inline_capsules)
+print(result.references)
+print(result.unpacked_files)
+```
+
 ## Current Status
 
 Agent Capsule V0 is the product-facing layer in this repository.
@@ -233,6 +248,7 @@ handoff_message = {
 ```
 
 For a shorter developer path, see [docs/QUICKSTART.md](docs/QUICKSTART.md).
+For safe receiver integration order, see [docs/RECEIVER_GUIDE.md](docs/RECEIVER_GUIDE.md).
 For installation packaging, see [docs/INSTALL.md](docs/INSTALL.md).
 For Ed25519 signing design details, see
 [docs/AGENT_CAPSULE_ED25519_DESIGN.md](docs/AGENT_CAPSULE_ED25519_DESIGN.md).

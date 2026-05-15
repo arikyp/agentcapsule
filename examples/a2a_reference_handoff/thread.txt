@@ -1,0 +1,3 @@
+Agent A: I am handing off a patch capsule and one large artifact by reference.
+
+{"reference_type":"agent_capsule_reference","schema_version":1,"capsule_uri":"https://example.test/capsules/patch-001.txt","capsule_sha256":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}

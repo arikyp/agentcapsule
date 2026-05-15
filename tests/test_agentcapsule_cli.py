@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import tempfile
@@ -353,6 +354,50 @@ class AgentCapsuleCliTests(unittest.TestCase):
             self.assertIn("Agent Capsule Governance Report", stdout)
             self.assertIn("disposition: review", stdout)
             self.assertIn("finding: [MEDIUM] dense_base64_like", stdout)
+
+    def test_ingest_json_output_is_stable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            inline_capsule = render_envelope(build_envelope(b"inline payload", filename="inline.txt"))
+            ref_capsule = render_envelope(build_envelope(b"reference payload", filename="reference.txt"))
+            ref_sha = hashlib.sha256(ref_capsule.encode("utf-8")).hexdigest()
+            transcript = root / "thread.txt"
+            transcript.write_text(
+                (
+                    "message start\n"
+                    f"{inline_capsule}\n"
+                    + json.dumps(
+                        {
+                            "reference_type": "agent_capsule_reference",
+                            "schema_version": 1,
+                            "capsule_uri": "https://example.test/capsules/ref-1.txt",
+                            "capsule_sha256": ref_sha,
+                        }
+                    )
+                    + "\n-----BEGIN AGENT CAPSULE-----\ntruncated\n"
+                ),
+                encoding="utf-8",
+            )
+            out = root / "decoded"
+
+            def _mock_fetch(uri, *, expected_sha256=None, save_path=None, resumable=False):
+                self.assertEqual(uri, "https://example.test/capsules/ref-1.txt")
+                self.assertEqual(expected_sha256, ref_sha)
+                if save_path:
+                    save_path.write_bytes(ref_capsule.encode("utf-8"))
+                return ref_capsule.encode("utf-8")
+
+            with patch("agentcapsule.receiver.fetch_capsule", side_effect=_mock_fetch):
+                status, stdout, stderr = _capture_cli(["ingest", str(transcript), "--out", str(out), "--json"])
+
+            self.assertEqual(status, 0)
+            self.assertEqual(stderr, "")
+            payload = json.loads(stdout)
+            self.assertEqual(payload["malformed_blocks"], 1)
+            self.assertEqual(len(payload["inline_capsules"]), 1)
+            self.assertEqual(len(payload["references"]), 1)
+            self.assertEqual(payload["references"][0]["status"], "unpacked")
+            self.assertEqual(len(payload["unpacked_files"]), 2)
 
     def test_codecs_json_output(self) -> None:
         status, stdout, stderr = _capture_cli(["codecs", "--json"])

@@ -87,6 +87,22 @@ agentcapsule reference /tmp/reference.capsule.txt \
 Receivers must fetch the full capsule and verify its `capsule_sha256`,
 payload hash, and signature. The descriptor is not authoritative.
 
+## Ingest A Thread Safely
+
+```bash
+agentcapsule ingest /tmp/thread.txt --out /tmp/capsule-sandbox --json
+```
+
+```python
+from agentcapsule import ingest_messages
+
+result = ingest_messages(
+    messages=thread_messages,
+    out_dir="/tmp/capsule-sandbox",
+    policy="/tmp/policy.json",
+)
+```
+
 ## Sign A Capsule
 
 ```bash
@@ -110,3 +126,5 @@ For historical fixture verification only:
 ```bash
 sh scripts/verify_v1.sh
 ```
+
+For the full safe receiver sequence, see `docs/RECEIVER_GUIDE.md`.

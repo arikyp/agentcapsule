@@ -15,6 +15,7 @@ from agentcapsule.errors import CapsuleError
 from agentcapsule.manifest import DEFAULT_CAPSULE_TYPE, DELIVERY_MODES, pack_path_with_manifest, unpack_payload
 from agentcapsule.policy import DEFAULT_POLICY, CapsulePolicy, load_policy, policy_to_dict
 from agentcapsule.registry import list_codecs
+from agentcapsule.receiver import ingest_messages as ingest_messages_api
 from agentcapsule.scanner import scan_text
 from agentcapsule.signing import (
     SIGNATURE_ED25519,
@@ -115,6 +116,19 @@ def main(argv: list[str] | None = None) -> int:
     scan_parser.add_argument("--signature-registry", help="local JSON signature trust registry")
     scan_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
     scan_parser.add_argument("--audit-json", action="store_true", help="emit structured audit event JSON")
+
+    ingest_parser = subparsers.add_parser("ingest", help="ingest a message transcript and unpack capsules safely")
+    ingest_parser.add_argument("text_file", nargs="?")
+    ingest_parser.add_argument("--text-file", dest="text_file_flag", help="text transcript file to ingest")
+    ingest_parser.add_argument("--out", required=True, help="sandbox output directory for unpacked files")
+    ingest_parser.add_argument("--policy", help="JSON policy file")
+    ingest_parser.add_argument("--key-env", help="environment variable containing HMAC-SHA256 verification key")
+    ingest_parser.add_argument("--encryption-key-env", help="environment variable containing decryption key")
+    ingest_parser.add_argument("--ed25519-public-key", help="base64 raw Ed25519 public key file")
+    ingest_parser.add_argument("--signature-registry", help="local JSON signature trust registry")
+    ingest_parser.add_argument("--no-fetch-references", action="store_true", help="detect references but do not fetch")
+    ingest_parser.add_argument("--resumable", action="store_true", help="attempt to resume partial reference downloads")
+    ingest_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
 
     codecs_parser = subparsers.add_parser("codecs", help="list registered capsule codecs")
     codecs_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
@@ -336,6 +350,32 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 _print_scan_report(scan_payload)
             return 0
+        if args.command == "ingest":
+            policy = _policy_from_args(args)
+            signature_registry = _signature_registry_from_args(args)
+            text_path = _ingest_text_file_from_args(args)
+            result = ingest_messages_api(
+                messages=[Path(text_path).read_text(encoding="utf-8")],
+                out_dir=Path(args.out),
+                policy=policy,
+                key_env=args.key_env,
+                encryption_key_env=args.encryption_key_env,
+                ed25519_public_key=args.ed25519_public_key,
+                signature_registry=signature_registry,
+                fetch_references=not args.no_fetch_references,
+                resumable_fetch=args.resumable,
+            )
+            payload = result.to_dict()
+            if args.json:
+                _print_json(payload)
+            else:
+                print(f"inline capsules: {len(result.inline_capsules)}")
+                print(f"references: {len(result.references)}")
+                print(f"malformed blocks: {result.malformed_blocks}")
+                print(f"unpacked files: {len(result.unpacked_files)}")
+                for file_path in result.unpacked_files:
+                    print(file_path)
+            return 0
         if args.command == "codecs":
             codecs = [_codec_to_dict(codec) for codec in list_codecs()]
             if args.json:
@@ -449,6 +489,17 @@ def _policy_from_args(args: argparse.Namespace) -> CapsulePolicy:
     if policy_path:
         return load_policy(Path(policy_path))
     return DEFAULT_POLICY
+
+
+def _ingest_text_file_from_args(args: argparse.Namespace) -> str:
+    positional = getattr(args, "text_file", None)
+    flagged = getattr(args, "text_file_flag", None)
+    if positional and flagged:
+        raise CapsuleError("choose either positional text_file or --text-file")
+    path = flagged or positional
+    if not path:
+        raise CapsuleError("ingest requires text_file positional argument or --text-file")
+    return str(path)
 
 
 def _wants_audit_json(args: argparse.Namespace) -> bool:
