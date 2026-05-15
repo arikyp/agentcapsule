@@ -19,7 +19,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-export PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$ROOT_DIR/src:$ROOT_DIR/legacy/lmcodec/src${PYTHONPATH:+:$PYTHONPATH}"
 
 "$PYTHON" -m agentcapsule.cli pack "$DEMO_DIR" --out "$CAPSULE"
 "$PYTHON" -m agentcapsule.cli inspect "$CAPSULE"

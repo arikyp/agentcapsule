@@ -124,7 +124,7 @@ sh scripts/release_check.sh
 For historical fixture verification only:
 
 ```bash
-sh scripts/verify_v1.sh
+sh legacy/lmcodec/scripts/verify_v1.sh
 ```
 
 For the full safe receiver sequence, see `docs/RECEIVER_GUIDE.md`.

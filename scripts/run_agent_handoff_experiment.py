@@ -226,7 +226,9 @@ def run_cli(args: list[str], events, trace_id: str, *, expect: int = 0) -> CliRe
     command = [sys.executable, "-m", "agentcapsule.cli", *args]
     env = os.environ.copy()
     src_path = str(ROOT_DIR / "src")
-    env["PYTHONPATH"] = src_path if not env.get("PYTHONPATH") else f"{src_path}{os.pathsep}{env['PYTHONPATH']}"
+    legacy_src_path = str(ROOT_DIR / "legacy" / "lmcodec" / "src")
+    prefix = f"{src_path}{os.pathsep}{legacy_src_path}"
+    env["PYTHONPATH"] = prefix if not env.get("PYTHONPATH") else f"{prefix}{os.pathsep}{env['PYTHONPATH']}"
     completed = subprocess.run(command, cwd=ROOT_DIR, env=env, text=True, capture_output=True, check=False)
     result = CliResult(args, completed.returncode, completed.stdout, completed.stderr)
     if completed.returncode != expect:

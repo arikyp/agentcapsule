@@ -22,4 +22,4 @@ Supporting design notes:
 
 Archived history:
 
-- [archive/lmcodec-research/README.md](archive/lmcodec-research/README.md): pre-Agent Capsule research archive.
+- [../legacy/lmcodec/docs/lmcodec-research/README.md](../legacy/lmcodec/docs/lmcodec-research/README.md): pre-Agent Capsule LMCodec research archive.

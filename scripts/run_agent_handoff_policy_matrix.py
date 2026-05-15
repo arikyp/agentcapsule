@@ -254,10 +254,11 @@ def format_json(data: dict[str, Any], *, pretty: bool) -> str:
 def env() -> dict[str, str]:
     data = os.environ.copy()
     src_path = str(ROOT_DIR / "src")
-    data["PYTHONPATH"] = src_path if not data.get("PYTHONPATH") else f"{src_path}{os.pathsep}{data['PYTHONPATH']}"
+    legacy_src_path = str(ROOT_DIR / "legacy" / "lmcodec" / "src")
+    prefix = f"{src_path}{os.pathsep}{legacy_src_path}"
+    data["PYTHONPATH"] = prefix if not data.get("PYTHONPATH") else f"{prefix}{os.pathsep}{data['PYTHONPATH']}"
     return data
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

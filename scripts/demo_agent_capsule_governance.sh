@@ -16,7 +16,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-export PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$ROOT_DIR/src:$ROOT_DIR/legacy/lmcodec/src${PYTHONPATH:+:$PYTHONPATH}"
 
 "$PYTHON" -m agentcapsule.cli pack "$GOV_DIR/unsigned-note.txt" --out "$UNSIGNED_CAPSULE"
 "$PYTHON" -m agentcapsule.cli scan "$UNSIGNED_CAPSULE" --policy "$OBSERVE_POLICY"

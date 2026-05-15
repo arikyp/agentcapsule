@@ -5,7 +5,7 @@ ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 PYTHON=${PYTHON:-python3}
 OUT_DIR=${OUT_DIR:-$(mktemp -d)}
 
-export PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$ROOT_DIR/src:$ROOT_DIR/legacy/lmcodec/src${PYTHONPATH:+:$PYTHONPATH}"
 
 if ! "$PYTHON" -c 'import cryptography' >/dev/null 2>&1; then
   echo "Agent handoff demo requires the optional signing extra for Ed25519."

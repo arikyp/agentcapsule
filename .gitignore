@@ -8,3 +8,4 @@ dist/
 build/
 *.egg-info/
 experiments/runs/
+legacy/lmcodec/experiments/runs/

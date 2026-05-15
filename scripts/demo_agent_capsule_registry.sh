@@ -13,10 +13,10 @@ cleanup() {
 }
 trap cleanup EXIT
 
-export PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$ROOT_DIR/src:$ROOT_DIR/legacy/lmcodec/src${PYTHONPATH:+:$PYTHONPATH}"
 
 if ! "$PYTHON" -c 'import cryptography' >/dev/null 2>&1; then
-  echo "Ed25519 registry demo requires installing the optional signing extra: lmcodec[signing]"
+  echo "Ed25519 registry demo requires installing the optional signing extra: agentcapsule[signing]"
   exit 0
 fi
 

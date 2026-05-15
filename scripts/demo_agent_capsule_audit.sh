@@ -18,7 +18,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-export PYTHONPATH="$ROOT_DIR/src${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$ROOT_DIR/src:$ROOT_DIR/legacy/lmcodec/src${PYTHONPATH:+:$PYTHONPATH}"
 
 pretty() {
   "$PYTHON" -m json.tool

@@ -38,10 +38,7 @@ jobs:
         run: python3 -m pip install -e .
 
       - name: Run unit tests
-        run: PYTHONPATH=src python3 -m unittest discover -s tests
-
-      - name: Run full V1 verification
-        run: sh scripts/verify_v1.sh
+        run: PYTHONPATH=src:legacy/lmcodec/src python3 -m unittest discover -s tests
 
       - name: Compile-check source, scripts, and tests
         run: python3 -m compileall src scripts tests
