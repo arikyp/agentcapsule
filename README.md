@@ -4,10 +4,25 @@
 [![PyPI](https://img.shields.io/pypi/v/agentcapsule.svg)](https://pypi.org/project/agentcapsule/)
 [![License](https://img.shields.io/pypi/l/agentcapsule.svg)](LICENSE)
 
-The missing shipping container for exact, verifiable payloads between agents
-over chat, email, tickets, and A2A messages.
+Agent Capsule is a text-native container for exact machine-readable handoffs between agents.
 
-## Try In 30 Seconds
+It solves one core problem: agent-to-agent payloads often break when moved through chat, tickets, prompts, or email. Agent Capsule makes those payloads verifiable before use.
+
+## Why Teams Adopt It
+
+- Fewer broken handoffs: payload integrity is explicit (`payload_sha256`).
+- Safer automation: verify before unpack/use.
+- Better governance posture: local policy checks, audit-friendly flow, optional signature trust controls.
+- Easy rollout: one CLI and one Python API, no service dependency required.
+
+## What Engineers Get
+
+- Deterministic envelope with metadata + hash.
+- Delivery modes for real systems: inline, attachment, reference.
+- Receiver kit with one command and one function.
+- Optional hardening: HMAC/Ed25519, AES-256-GCM, zstd, resumable fetch.
+
+## 60-Second Quickstart
 
 ```bash
 python3 -m pip install agentcapsule
@@ -18,242 +33,144 @@ agentcapsule unpack capsule.txt --out decoded
 cmp payload.json decoded/payload.json
 ```
 
-Expected result:
-- `verify` reports `ok`
-- `cmp` prints nothing (byte-perfect roundtrip)
+If `cmp` prints nothing, the handoff is byte-perfect.
 
-## Before/After In Practice
+## Fast Integration Path
 
-Before (free-form handoff text breaks machine parsing):
+Without Agent Capsule:
 
-```text
-{"task":"sync","items":[1,2,3
-```
+- Payloads are often copied as free-form text.
+- Truncation, formatting damage, or silent edits are common.
+- Receivers lack a consistent trust and verification path.
 
-After (capsule-enveloped payload survives transport and verifies):
+With Agent Capsule:
 
-```text
------BEGIN AGENT CAPSULE-----
-...payload+metadata+sha256...
------END AGENT CAPSULE-----
-verify: ok
-unpack: wrote decoded/payload.json
-```
+- Payload integrity is explicit (`payload_sha256`).
+- Signature and trust checks are policy-driven.
+- Unpack happens only after verification.
+- Receiver behavior is consistent across frameworks.
 
-Agent Capsule Protocol V0 is an inspectable, verifiable artifact format for
-moving exact machine-readable payloads through agent and text-native channels:
-chat, tickets, prompts, email, GitHub issues, A2A messages, MIME attachments,
-and agent traces.
+## Install
 
-The default capsule path is plain Base64 plus metadata, SHA256 verification,
-optional signatures, local policy checks, and sandbox unpacking. Historical
-research lives only in the archive, not the supported product surface.
-
-## A2A Handoffs: Fixing The #1 Reliability Pain Point
-
-A2A messages often lose payload fidelity when exact machine-readable data is
-embedded directly in conversational fields. Capsules make that payload
-verifiable, and reference mode keeps A2A messages small while preserving trust.
-
-Reference-mode flow with A2A:
+### PyPI
 
 ```bash
-agentcapsule pack handoff.json --out handoff.capsule.txt
-agentcapsule reference handoff.capsule.txt \
-  --uri https://capsules.example/handoff/abc123 \
-  --json > handoff.reference.json
-```
-
-Attach `handoff.reference.json` to the A2A message body. Receiving agents fetch
-the referenced capsule, run `agentcapsule verify`, then `agentcapsule unpack`
-into a sandboxed output directory before execution.
-
-Receiver Kit (one command / one function):
-
-```bash
-agentcapsule ingest thread.txt --out sandbox --json
-```
-
-```python
-from agentcapsule import ingest_messages
-
-result = ingest_messages(messages=thread_messages, out_dir="./sandbox", policy="./policy.json")
-print(result.inline_capsules)
-print(result.references)
-print(result.unpacked_files)
-```
-
-## Current Status
-
-Agent Capsule V0 is the product-facing layer in this repository.
-
-- Base64 capsules are the primary stable path.
-- Capsules can be delivered inline, as attachments, or by reference descriptor.
-- Directory bundles are deterministic JSON with per-file SHA256 and byte
-  counts.
-- HMAC-SHA256 and optional Ed25519 signatures are supported for authenticity
-  experiments.
-- Local policy, scan, audit, trust-registry, encryption, and scalability flows are implemented.
-- Runtime Base64 capsule encode/decode is dependency-free Python; encryption, signing, and compression require optional extras.
-
-## What Works
-
-- Base64 capsule pack, inspect, verify, scan, and unpack flows.
-- **AES-256-GCM authenticated encryption** for payload confidentiality.
-- **Zstandard (zstd) compression** for efficient large-payload transfer.
-- **Resumable Reference Fetching** via CLI for reliable large-artifact distribution.
-- Signed capsule verification with HMAC and **Ed25519 public-key identities**.
-- **Identity Registry** with support for organization binding, expiry, and revocation.
-- Agent handoff manifests with file inventory, requested capabilities, policy
-  hints, and delivery mode.
-- Inline, attachment, and reference delivery metadata.
-- Byte-perfect encode/decode roundtrip for the tested payload sizes and demos.
-- Deterministic output for identical payload, model, and settings.
-- Model fingerprint checks before decode.
-- Copy/paste armour with version, model fingerprint, and settings.
-- CLI file encode/decode.
-- CRC32 corruption detection inside the payload frame.
-- Unit, stress, golden, and end-to-end verification tests.
-
-## What Does Not Yet Work
-
-- Production identity (remote discovery), central trust registry, or remote policy service.
-- Large-file distribution as an inline capsule.
-- Semantically meaningful prose generation.
-- Steganography-grade secrecy.
-- Large-file archival confidence.
-- GPU-scale model training in the runtime path.
-
-## Agent Capsule Quickstart
-
-Use the PyPI package for a quick local try:
-
-```bash
-# Core package (Base64 only, no dependencies)
 python3 -m pip install agentcapsule
+```
 
-# With full security and scalability support (recommended)
+### Full Optional Capabilities
+
+```bash
 python3 -m pip install "agentcapsule[all]"
 ```
 
-This exposes the `agentcapsule` and `capsule` commands for Agent Capsules.
+Includes optional extras for signing, compression, and remote fetch.
 
-For local development against the checkout:
+### Project / CI Environment
 
 ```bash
 python3 -m venv .venv
 .venv/bin/python -m pip install -e ".[all]"
 ```
 
-Create, inspect, verify, and unpack a compressed capsule:
+### pipx
 
 ```bash
-printf 'large repetitive payload\n' > payload.txt
-agentcapsule pack payload.txt --out capsule.txt --compression zstd
-agentcapsule verify capsule.txt
+pipx install agentcapsule
 ```
 
-Fetch and verify a capsule from a remote reference:
+## Sender: Pack And Send
+
+Pack payloads from file or directory:
 
 ```bash
-agentcapsule fetch --uri https://example.com/capsule.txt --sha256 <expected-hash> --out local.txt
-# Or via reference descriptor
-agentcapsule fetch --reference ref.json --out local.txt --resumable
+agentcapsule pack handoff.json --out handoff.capsule.txt
 ```
 
-Create, inspect, verify, and unpack a Base64 capsule:
+Create a reference descriptor for out-of-band storage:
 
 ```bash
-printf 'agent handoff state\n' > payload.txt
-agentcapsule pack payload.txt --out capsule.txt
-agentcapsule inspect capsule.txt
-agentcapsule verify capsule.txt
-agentcapsule unpack capsule.txt --out decoded
-cmp payload.txt decoded/payload.txt
+agentcapsule reference handoff.capsule.txt \
+  --uri https://capsules.example/handoff/abc123 \
+  --json > handoff.reference.json
 ```
 
-Create an encrypted and signed handoff capsule:
+## Receiver: Ingest Safely
+
+CLI path:
 
 ```bash
-export CAPSULE_KEY=$(openssl rand -base64 32)
-agentcapsule pack payload.txt \
-  --out capsule.txt \
-  --encrypt aes-256-gcm \
-  --encryption-key-env CAPSULE_KEY \
-  --sign-ed25519-key publisher.key
-
-agentcapsule inspect capsule.txt --encryption-key-env CAPSULE_KEY
+agentcapsule ingest thread.txt --out ./sandbox --policy policy.json --json
 ```
 
-Create a signed handoff capsule with explicit manifest metadata:
-
-```bash
-CAPSULE_HMAC_KEY='shared secret' agentcapsule pack payload.txt \
-  --out capsule.txt \
-  --created-by agent-a \
-  --task-id abc123 \
-  --requested-capability read_files \
-  --requested-capability run_tests \
-  --delivery-mode inline \
-  --sign-key-env CAPSULE_HMAC_KEY
-CAPSULE_HMAC_KEY='shared secret' agentcapsule verify capsule.txt --key-env CAPSULE_HMAC_KEY
-```
-
-Emit a reference descriptor when the capsule will be stored out of band:
-
-```bash
-agentcapsule reference capsule.txt \
-  --uri https://example.test/capsules/capsule.txt \
-  --json
-```
-
-Tiny symmetric encryption example:
-
-```bash
-python3 -m pip install "agentcapsule[signing]"
-python3 - <<'PY'
-from cryptography.fernet import Fernet
-
-key = Fernet.generate_key()
-cipher = Fernet(key)
-token = cipher.encrypt(b"handoff: exact payload")
-print(token.decode())
-print(cipher.decrypt(token).decode())
-PY
-```
-
-Framework integration snippets:
+Python path:
 
 ```python
-# LangGraph-style gate: verify before unpacking.
-def ingest_capsule(path: str) -> dict:
-    import subprocess
+from agentcapsule import ingest_messages
 
-    subprocess.run(["agentcapsule", "verify", path], check=True)
-    subprocess.run(["agentcapsule", "unpack", path, "--out", "decoded"], check=True)
-    return {"payload_dir": "decoded"}
+result = ingest_messages(
+    messages=thread_messages,
+    out_dir="./sandbox",
+    policy="./policy.json",
+)
+
+print(result.inline_capsules)
+print(result.references)
+print(result.unpacked_files)
 ```
 
-```python
-# OpenAI Agents-style handoff: attach a reference descriptor instead of raw JSON.
-handoff_message = {
-    "content": "Capsule reference attached for exact payload transfer.",
-    "attachments": [
-        {
-            "type": "agentcapsule.reference",
-            "uri": "https://capsules.example/handoff/abc123",
-        }
-    ],
-}
-```
+This is the fastest way to integrate into an existing agent framework.
 
-For a shorter developer path, see [docs/QUICKSTART.md](docs/QUICKSTART.md).
-For safe receiver integration order, see [docs/RECEIVER_GUIDE.md](docs/RECEIVER_GUIDE.md).
-For installation packaging, see [docs/INSTALL.md](docs/INSTALL.md).
-For Ed25519 signing design details, see
-[docs/AGENT_CAPSULE_ED25519_DESIGN.md](docs/AGENT_CAPSULE_ED25519_DESIGN.md).
-For audit event schema and examples, see
-[docs/AGENT_CAPSULE_AUDIT_LOG_V0.md](docs/AGENT_CAPSULE_AUDIT_LOG_V0.md).
-For release and distribution planning, see
-[docs/RELEASE_DISTRIBUTION.md](docs/RELEASE_DISTRIBUTION.md).
-For the public roadmap, see [docs/ROADMAP.md](docs/ROADMAP.md).
+## Deploy In CI / Services
+
+- CI: run `agentcapsule verify` as a gate before executing inbound artifacts.
+- Services: call `ingest_messages(...)` in your receiver handler and pass your local policy file.
+- Rollout model: start with unsigned Base64 + hash verification, then enforce signature trust policy by environment.
+
+## Delivery Modes
+
+- `inline`: full capsule in message body.
+- `attachment`: full capsule as file/blob.
+- `reference`: descriptor in message, full capsule fetched by URI.
+
+Reference descriptors are not authoritative by themselves. Receivers must fetch the full capsule and verify `capsule_sha256`, payload hash, and policy requirements.
+
+## Security And Trust Model
+
+Baseline:
+
+- SHA256 payload integrity checks.
+- Local policy checks.
+- Safe unpacking into chosen output directory.
+
+Optional hardening:
+
+- HMAC-SHA256 signatures.
+- Ed25519 signatures and trust registry checks.
+- AES-256-GCM payload encryption.
+- Zstandard compression.
+- Resumable reference fetching.
+
+## Typical Production Flow
+
+1. Sender packs payload and optional signature metadata.
+2. Sender transports capsule inline/attachment/reference.
+3. Receiver scans inbound text.
+4. Receiver verifies metadata, hash, signature trust, and policy.
+5. Receiver unpacks verified payload into sandbox.
+6. Receiver executes downstream logic on unpacked files.
+
+## Scope
+
+Stable default path is Base64 capsule transfer and verification.
+
+This repository also includes a `legacy/lmcodec/` subtree for historical LMCodec research and assets. Agent Capsule is the active project surface.
+
+## Docs
+
+- [docs/QUICKSTART.md](docs/QUICKSTART.md)
+- [docs/RECEIVER_GUIDE.md](docs/RECEIVER_GUIDE.md)
+- [docs/INSTALL.md](docs/INSTALL.md)
+- [docs/AGENT_CAPSULE_PROTOCOL_V0.md](docs/AGENT_CAPSULE_PROTOCOL_V0.md)
+- [docs/TESTING.md](docs/TESTING.md)
+- [docs/ROADMAP.md](docs/ROADMAP.md)
