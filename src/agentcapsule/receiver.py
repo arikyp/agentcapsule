@@ -10,7 +10,13 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from agentcapsule.envelope import BEGIN_MARKER, END_MARKER, build_envelope, parse_envelope, render_envelope, verify_envelope
-from agentcapsule.errors import CapsuleError
+from agentcapsule.errors import (
+    CapsuleError,
+    CapsuleParseError,
+    CapsulePolicyError,
+    CapsuleUnpackError,
+    CapsuleVerificationError,
+)
 from agentcapsule.fetcher import fetch_capsule
 from agentcapsule.manifest import DEFAULT_CAPSULE_TYPE, DELIVERY_MODES, pack_path_with_manifest, unpack_payload
 from agentcapsule.policy import DEFAULT_POLICY, CapsulePolicy, load_policy, policy_to_dict
@@ -70,6 +76,7 @@ class IngestResult:
     references: list[dict[str, object]]
     unpacked_files: list[str]
     malformed_blocks: int
+    effective_policy: dict[str, object]
     scan_report: dict[str, object] | None = None
 
     @property
@@ -83,7 +90,24 @@ class IngestResult:
         return False
 
     def to_dict(self) -> dict[str, object]:
+        accepted_capsules_count = _count_status(self.inline_capsules, "unpacked") + _count_status(self.references, "unpacked")
+        rejected_capsules_count = _count_status(self.inline_capsules, "invalid") + _count_status(
+            self.references, ("invalid", "failed")
+        )
+        skipped_references_count = _count_status(self.references, "skipped")
+        fetched_references_count = sum(1 for item in self.references if item.get("fetched") is True)
+        rejected_reasons = _aggregate_rejected_reasons(self)
         return {
+            "report_type": "agent_capsule_ingest_report",
+            "schema_version": 1,
+            "disposition": _ingest_disposition(self),
+            "accepted_capsules_count": accepted_capsules_count,
+            "rejected_capsules_count": rejected_capsules_count,
+            "skipped_references_count": skipped_references_count,
+            "fetched_references_count": fetched_references_count,
+            "unpacked_files_count": len(self.unpacked_files),
+            "rejected_reasons_by_type": rejected_reasons,
+            "effective_policy": self.effective_policy,
             "inline_capsules": self.inline_capsules,
             "references": self.references,
             "unpacked_files": self.unpacked_files,
@@ -301,54 +325,107 @@ def ingest_messages(
                     "capsule_index": block_idx,
                     "capsule_sha256": capsule_sha256,
                     "status": "unpacked",
+                    "accepted": True,
+                    "stage": "unpack",
+                    "reason_code": None,
+                    "reason_message": None,
                     **unpacked.to_dict(),
                 }
                 unpacked_files.extend(unpacked.files_written)
             except Exception as exc:  # receiver path must stay resilient
+                stage, reason_code, reason_message = _classify_ingest_exception(exc, context="inline_unpack")
                 inline_payload = {
                     "message_index": index,
                     "capsule_index": block_idx,
                     "capsule_sha256": capsule_sha256,
                     "status": "invalid",
+                    "accepted": False,
+                    "stage": stage,
+                    "reason_code": reason_code,
+                    "reason_message": reason_message,
                     "error": str(exc),
                 }
             inline_capsules.append(inline_payload)
 
         for ref_idx, descriptor in enumerate(_extract_reference_descriptors(text)):
+            ref_error = _validate_reference_descriptor(descriptor)
+            uri_value = descriptor.get("capsule_uri")
+            expected_capsule_sha = descriptor.get("capsule_sha256")
+            expected_payload_sha = descriptor.get("payload_sha256")
             ref_result: dict[str, object] = {
                 "message_index": index,
                 "reference_index": ref_idx,
                 "descriptor": descriptor,
+                "capsule_uri": str(uri_value) if isinstance(uri_value, str) else None,
+                "capsule_sha256_expected": str(expected_capsule_sha) if isinstance(expected_capsule_sha, str) else None,
+                "payload_sha256_expected": str(expected_payload_sha) if isinstance(expected_payload_sha, str) else None,
+                "capsule_sha256_actual": None,
+                "payload_sha256_actual": None,
                 "status": "detected",
+                "accepted": False,
+                "stage": "scan",
+                "reason_code": None,
+                "reason_message": None,
+                "fetched": False,
             }
             references.append(ref_result)
 
-            ref_error = _validate_reference_descriptor(descriptor)
             if ref_error:
+                stage, reason_code, reason_message = _classify_ingest_exception(
+                    CapsuleError(ref_error),
+                    context="reference_descriptor",
+                )
                 ref_result["status"] = "invalid"
+                ref_result["stage"] = stage
+                ref_result["reason_code"] = reason_code
+                ref_result["reason_message"] = reason_message
                 ref_result["error"] = ref_error
                 continue
             if not fetch_references:
                 ref_result["status"] = "skipped"
+                ref_result["stage"] = "fetch"
                 continue
 
             uri = str(descriptor["capsule_uri"])
-            expected_sha = str(descriptor["capsule_sha256"])
+            expected_sha = str(descriptor["capsule_sha256"]).lower()
             expected_payload_sha = str(descriptor["payload_sha256"]).lower()
             ref_capsule_dir = out_root / "references"
             ref_capsule_dir.mkdir(parents=True, exist_ok=True)
             ref_path = ref_capsule_dir / f"message-{index:04d}-ref-{ref_idx:04d}.capsule.txt"
             try:
                 data = fetch_capsule(uri, expected_sha256=expected_sha, save_path=ref_path, resumable=resumable_fetch)
+                actual_capsule_sha = hashlib.sha256(data).hexdigest().lower()
+                ref_result["capsule_sha256_actual"] = actual_capsule_sha
+                ref_result["fetched"] = True
+                ref_result["stage"] = "fetch"
                 capsule_text = data.decode("utf-8")
-                envelope = parse_envelope(capsule_text)
-                actual_payload_sha = envelope.payload_sha256.lower()
-                if actual_payload_sha != expected_payload_sha:
-                    raise CapsuleError("reference descriptor payload_sha256 does not match fetched capsule")
                 ref_result["status"] = "fetched"
                 ref_result["capsule_path"] = str(ref_path)
-                ref_result["payload_sha256"] = actual_payload_sha
+            except Exception as exc:  # receiver path must stay resilient
+                stage, reason_code, reason_message = _classify_ingest_exception(exc, context="reference_fetch")
+                ref_result["status"] = "failed"
+                ref_result["stage"] = stage
+                ref_result["reason_code"] = reason_code
+                ref_result["reason_message"] = reason_message
+                ref_result["error"] = str(exc)
+                continue
 
+            try:
+                envelope = parse_envelope(capsule_text)
+                actual_payload_sha = envelope.payload_sha256.lower()
+                ref_result["payload_sha256_actual"] = actual_payload_sha
+                if actual_payload_sha != expected_payload_sha:
+                    raise CapsuleError("reference descriptor payload_sha256 does not match fetched capsule")
+            except Exception as exc:  # receiver path must stay resilient
+                stage, reason_code, reason_message = _classify_ingest_exception(exc, context="reference_verify")
+                ref_result["status"] = "failed"
+                ref_result["stage"] = stage
+                ref_result["reason_code"] = reason_code
+                ref_result["reason_message"] = reason_message
+                ref_result["error"] = str(exc)
+                continue
+
+            try:
                 target_dir = out_root / "reference-unpacked" / f"message-{index:04d}-ref-{ref_idx:04d}"
                 unpacked = unpack_capsule(
                     capsule_text,
@@ -360,11 +437,19 @@ def ingest_messages(
                     signature_registry=registry,
                 )
                 ref_result["status"] = "unpacked"
+                ref_result["accepted"] = True
+                ref_result["stage"] = "unpack"
+                ref_result["reason_code"] = None
+                ref_result["reason_message"] = None
                 ref_result["verification"] = unpacked.verification.to_dict()
                 ref_result["files_written"] = unpacked.files_written
                 unpacked_files.extend(unpacked.files_written)
             except Exception as exc:  # receiver path must stay resilient
+                stage, reason_code, reason_message = _classify_ingest_exception(exc, context="reference_unpack")
                 ref_result["status"] = "failed"
+                ref_result["stage"] = stage
+                ref_result["reason_code"] = reason_code
+                ref_result["reason_message"] = reason_message
                 ref_result["error"] = str(exc)
 
     return IngestResult(
@@ -372,6 +457,7 @@ def ingest_messages(
         references=references,
         unpacked_files=unpacked_files,
         malformed_blocks=malformed_blocks,
+        effective_policy=policy_to_dict(policy_obj),
         scan_report=ingest_scan_report,
     )
 
@@ -553,6 +639,103 @@ def _validate_reference_descriptor(descriptor: dict[str, object]) -> str | None:
         except ValueError:
             return f"reference descriptor {field} must be a SHA256 hex string"
     return None
+
+
+def _ingest_disposition(result: IngestResult) -> str:
+    risk_level = "low"
+    if isinstance(result.scan_report, dict):
+        risk_raw = result.scan_report.get("risk_level")
+        if isinstance(risk_raw, str):
+            risk_level = risk_raw
+    if result.has_failures or risk_level == "high":
+        return "block"
+    if risk_level == "medium":
+        return "review"
+    return "allow"
+
+
+def _count_status(items: list[dict[str, object]], status: str | tuple[str, ...]) -> int:
+    if isinstance(status, str):
+        status_values = {status}
+    else:
+        status_values = set(status)
+    return sum(1 for item in items if item.get("status") in status_values)
+
+
+def _aggregate_rejected_reasons(result: IngestResult) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    if result.malformed_blocks:
+        counts["MALFORMED_CAPSULE_BLOCK"] = result.malformed_blocks
+    for item in result.inline_capsules:
+        if item.get("status") != "invalid":
+            continue
+        reason = item.get("reason_code")
+        if isinstance(reason, str):
+            counts[reason] = counts.get(reason, 0) + 1
+    for item in result.references:
+        if item.get("status") not in {"invalid", "failed"}:
+            continue
+        reason = item.get("reason_code")
+        if isinstance(reason, str):
+            counts[reason] = counts.get(reason, 0) + 1
+    return counts
+
+
+def _classify_ingest_exception(exc: Exception, *, context: str) -> tuple[str, str, str]:
+    message = str(exc)
+    lowered = message.lower()
+
+    if context == "reference_descriptor":
+        return "scan", "REFERENCE_DESCRIPTOR_INVALID", message
+    if context == "reference_fetch" and "fetched capsule sha256 mismatch" in lowered:
+        return "fetch", "REFERENCE_CAPSULE_HASH_MISMATCH", message
+    if context == "reference_fetch":
+        if _is_fetch_policy_error(lowered):
+            return "fetch", "FETCH_BLOCKED_BY_POLICY", message
+        return "fetch", "REFERENCE_TRANSPORT_ERROR", message
+    if context == "reference_verify" and "payload_sha256 does not match fetched capsule" in lowered:
+        return "verify", "REFERENCE_PAYLOAD_HASH_MISMATCH", message
+
+    if isinstance(exc, CapsuleParseError):
+        return "parse", "CAPSULE_PARSE_ERROR", message
+    if isinstance(exc, CapsuleUnpackError):
+        return "unpack", "UNPACK_FAILED", message
+    if isinstance(exc, CapsulePolicyError):
+        if "signature key is not trusted" in lowered or "inline public keys are not allowed" in lowered:
+            return "policy", "SIGNATURE_UNTRUSTED", message
+        if "unsigned capsules are not allowed" in lowered or "signature mode is not allowed" in lowered:
+            return "policy", "SIGNATURE_REQUIRED", message
+        return "policy", "POLICY_BLOCK", message
+    if isinstance(exc, CapsuleVerificationError):
+        if "payload sha256 mismatch" in lowered:
+            return "verify", "PAYLOAD_HASH_MISMATCH", message
+        if "decryption key provided" in lowered:
+            return "verify", "ENCRYPTION_KEY_MISSING", message
+        if "decryption failed" in lowered:
+            return "verify", "DECRYPTION_FAILED", message
+        if "signature verification failed" in lowered:
+            return "verify", "SIGNATURE_UNTRUSTED", message
+    if isinstance(exc, CapsuleError):
+        if "signature requires key_env" in lowered:
+            return "verify", "SIGNATURE_REQUIRED", message
+        if "payload_sha256 does not match fetched capsule" in lowered:
+            return "verify", "REFERENCE_PAYLOAD_HASH_MISMATCH", message
+
+    if context == "reference_unpack":
+        return "unpack", "UNPACK_FAILED", message
+    if context == "inline_unpack":
+        if "payload sha256 mismatch" in lowered:
+            return "verify", "PAYLOAD_HASH_MISMATCH", message
+        return "unknown", "UNKNOWN_ERROR", message
+    return "unknown", "UNKNOWN_ERROR", message
+
+
+def _is_fetch_policy_error(lowered_message: str) -> bool:
+    return (
+        "unsupported uri scheme" in lowered_message
+        or "missing uri host" in lowered_message
+        or "blocked private or local network host" in lowered_message
+    )
 
 
 def _scan_report(result, policy: CapsulePolicy) -> dict[str, object]:

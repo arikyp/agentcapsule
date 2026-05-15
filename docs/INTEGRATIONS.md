@@ -32,6 +32,13 @@ For CI gates, fail on invalid/malformed ingestion:
 agentcapsule ingest thread.txt --out ./sandbox --policy ./policy.json --json --strict
 ```
 
+Use the ingest report top-level fields for orchestration and CI decisions:
+- `disposition`
+- `accepted_capsules_count`
+- `rejected_capsules_count`
+- `rejected_reasons_by_type`
+- `effective_policy`
+
 ## LangGraph
 
 Typical pattern: call `ingest_messages` inside the receiver node and store outputs in graph state.

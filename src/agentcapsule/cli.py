@@ -12,6 +12,13 @@ from agentcapsule.audit import audit_event, disposition_from_risk, disposition_f
 from agentcapsule.backends import known_codecs
 from agentcapsule.envelope import build_envelope, parse_envelope, render_envelope, verify_envelope
 from agentcapsule.errors import CapsuleError
+from agentcapsule.fetcher import (
+    DEFAULT_ALLOWED_SCHEMES,
+    DEFAULT_BLOCK_PRIVATE_NETWORKS,
+    DEFAULT_MAX_DOWNLOAD_BYTES,
+    DEFAULT_MAX_REDIRECTS,
+    DEFAULT_TIMEOUT_SECONDS,
+)
 from agentcapsule.manifest import DEFAULT_CAPSULE_TYPE, DELIVERY_MODES, pack_path_with_manifest, unpack_payload
 from agentcapsule.policy import DEFAULT_POLICY, CapsulePolicy, load_policy, policy_to_dict
 from agentcapsule.registry import list_codecs
@@ -136,6 +143,12 @@ def main(argv: list[str] | None = None) -> int:
         help="exit non-zero when malformed blocks or invalid/failed capsule ingestion is detected",
     )
     ingest_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
+
+    policy_parser = subparsers.add_parser("policy", help="show effective policy and fetch defaults")
+    policy_subparsers = policy_parser.add_subparsers(dest="policy_command", required=True)
+    policy_show_parser = policy_subparsers.add_parser("show", help="show effective policy")
+    policy_show_parser.add_argument("--policy", help="JSON policy file")
+    policy_show_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
 
     codecs_parser = subparsers.add_parser("codecs", help="list registered capsule codecs")
     codecs_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
@@ -385,6 +398,36 @@ def main(argv: list[str] | None = None) -> int:
             if args.strict_ingest and result.has_failures:
                 print(_ingest_strict_failure_summary(result), file=sys.stderr)
                 return 2
+            return 0
+        if args.command == "policy":
+            if args.policy_command != "show":
+                raise CapsuleError("unsupported policy command")
+            policy_source = "file" if args.policy else "defaults"
+            policy_path = str(Path(args.policy)) if args.policy else None
+            policy = _policy_from_args(args)
+            payload = {
+                "report_type": "agent_capsule_effective_policy",
+                "schema_version": 1,
+                "policy_source": policy_source,
+                "policy_path": policy_path,
+                "effective_policy": policy_to_dict(policy),
+                "fetch_policy": {
+                    "allowed_schemes": sorted(DEFAULT_ALLOWED_SCHEMES),
+                    "timeout_seconds": DEFAULT_TIMEOUT_SECONDS,
+                    "max_download_bytes": DEFAULT_MAX_DOWNLOAD_BYTES,
+                    "max_redirects": DEFAULT_MAX_REDIRECTS,
+                    "follow_redirects": False,
+                    "block_private_networks": DEFAULT_BLOCK_PRIVATE_NETWORKS,
+                    "resumable_supported": True,
+                },
+            }
+            if args.json:
+                _print_json(payload)
+            else:
+                print(f"policy source: {policy_source}")
+                if policy_path:
+                    print(f"policy path: {policy_path}")
+                print(json.dumps(payload["effective_policy"], indent=2, sort_keys=True))
             return 0
         if args.command == "codecs":
             codecs = [_codec_to_dict(codec) for codec in list_codecs()]

@@ -338,10 +338,23 @@ class AgentCapsuleCliTests(unittest.TestCase):
             self.assertEqual(status, 0)
             self.assertEqual(stderr, "")
             payload = json.loads(stdout)
+            self.assertEqual(payload["report_type"], "agent_capsule_ingest_report")
+            self.assertEqual(payload["schema_version"], 1)
+            self.assertEqual(payload["disposition"], "block")
+            self.assertEqual(payload["accepted_capsules_count"], 2)
+            self.assertEqual(payload["rejected_capsules_count"], 0)
+            self.assertEqual(payload["skipped_references_count"], 0)
+            self.assertEqual(payload["fetched_references_count"], 1)
+            self.assertEqual(payload["unpacked_files_count"], 2)
+            self.assertEqual(payload["rejected_reasons_by_type"], {"MALFORMED_CAPSULE_BLOCK": 1})
+            self.assertIn("max_payload_bytes", payload["effective_policy"])
             self.assertEqual(payload["malformed_blocks"], 1)
             self.assertEqual(len(payload["inline_capsules"]), 1)
             self.assertEqual(len(payload["references"]), 1)
             self.assertEqual(payload["references"][0]["status"], "unpacked")
+            self.assertEqual(payload["references"][0]["accepted"], True)
+            self.assertEqual(payload["references"][0]["stage"], "unpack")
+            self.assertEqual(payload["references"][0]["reason_code"], None)
             self.assertEqual(payload["scan_report"]["report_type"], "agent_capsule_governance_scan")
             self.assertEqual(len(payload["unpacked_files"]), 2)
 
@@ -367,6 +380,35 @@ class AgentCapsuleCliTests(unittest.TestCase):
             self.assertNotEqual(status, 0)
             self.assertIn("references: 1", stdout)
             self.assertIn("strict mode failed", stderr)
+
+    def test_policy_show_defaults_json(self) -> None:
+        status, stdout, stderr = _capture_cli(["policy", "show", "--json"])
+
+        self.assertEqual(status, 0)
+        self.assertEqual(stderr, "")
+        payload = json.loads(stdout)
+        self.assertEqual(payload["report_type"], "agent_capsule_effective_policy")
+        self.assertEqual(payload["schema_version"], 1)
+        self.assertEqual(payload["policy_source"], "defaults")
+        self.assertEqual(payload["policy_path"], None)
+        self.assertEqual(payload["fetch_policy"]["allowed_schemes"], ["http", "https"])
+        self.assertEqual(payload["fetch_policy"]["resumable_supported"], True)
+        self.assertIn("max_payload_bytes", payload["effective_policy"])
+
+    def test_policy_show_file_json(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            policy_path = Path(tmp) / "policy.json"
+            policy_path.write_text(json.dumps({"allow_unsigned": False, "max_payload_bytes": 1024}), encoding="utf-8")
+
+            status, stdout, stderr = _capture_cli(["policy", "show", "--policy", str(policy_path), "--json"])
+
+            self.assertEqual(status, 0)
+            self.assertEqual(stderr, "")
+            payload = json.loads(stdout)
+            self.assertEqual(payload["policy_source"], "file")
+            self.assertEqual(payload["policy_path"], str(policy_path))
+            self.assertEqual(payload["effective_policy"]["allow_unsigned"], False)
+            self.assertEqual(payload["effective_policy"]["max_payload_bytes"], 1024)
 
     def test_codecs_json_output(self) -> None:
         status, stdout, stderr = _capture_cli(["codecs", "--json"])

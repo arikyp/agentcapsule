@@ -30,6 +30,13 @@ For CI/governance gates, use strict mode:
 agentcapsule ingest thread.txt --out ./sandbox --policy policy.json --json --strict
 ```
 
+Inspect effective policy and fetch defaults:
+
+```bash
+agentcapsule policy show --json
+agentcapsule policy show --policy policy.json --json
+```
+
 ## Safe Receiver Order
 
 Always apply this order:
@@ -48,6 +55,13 @@ Always apply this order:
 - Reference descriptors must include both `capsule_sha256` and `payload_sha256`.
 - `malformed_blocks` in the ingest result reports capsule-like blocks with missing end markers.
 - `scan_report` in the ingest result includes a governance scan summary and findings for the full message set.
+- Ingest JSON includes a stable top-level report contract:
+  `report_type`, `schema_version`, `disposition`, `accepted_capsules_count`,
+  `rejected_capsules_count`, `skipped_references_count`,
+  `fetched_references_count`, `unpacked_files_count`,
+  `rejected_reasons_by_type`, and `effective_policy`.
+- Inline/reference entries include stable machine fields:
+  `accepted`, `stage`, `reason_code`, and `reason_message`.
 - For HMAC signatures, pass `key_env`.
 - For Ed25519 signatures, use `ed25519_public_key` and/or `signature_registry`.
 - Reference fetching requires `agentcapsule[fetch]` (or `agentcapsule[all]`) so `httpx` is installed.

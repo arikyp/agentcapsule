@@ -57,6 +57,21 @@ class AgentCapsuleReceiverTests(unittest.TestCase):
             self.assertEqual(result.references[0]["status"], "unpacked")
             self.assertTrue(result.has_failures)
             self.assertIsNotNone(result.scan_report)
+            self.assertTrue(result.inline_capsules[0]["accepted"])
+            self.assertEqual(result.inline_capsules[0]["reason_code"], None)
+            self.assertTrue(result.references[0]["accepted"])
+            self.assertEqual(result.references[0]["fetched"], True)
+
+            payload = result.to_dict()
+            self.assertEqual(payload["report_type"], "agent_capsule_ingest_report")
+            self.assertEqual(payload["schema_version"], 1)
+            self.assertEqual(payload["disposition"], "block")
+            self.assertEqual(payload["accepted_capsules_count"], 2)
+            self.assertEqual(payload["rejected_capsules_count"], 0)
+            self.assertEqual(payload["fetched_references_count"], 1)
+            self.assertEqual(payload["unpacked_files_count"], 2)
+            self.assertEqual(payload["rejected_reasons_by_type"], {"MALFORMED_CAPSULE_BLOCK": 1})
+            self.assertIn("max_payload_bytes", payload["effective_policy"])
 
             unpacked_names = sorted(Path(path).name for path in result.unpacked_files)
             self.assertEqual(unpacked_names, ["inline.txt", "reference.txt"])
@@ -95,8 +110,12 @@ class AgentCapsuleReceiverTests(unittest.TestCase):
 
             self.assertEqual(len(result.references), 1)
             self.assertEqual(result.references[0]["status"], "failed")
+            self.assertEqual(result.references[0]["accepted"], False)
+            self.assertEqual(result.references[0]["stage"], "verify")
+            self.assertEqual(result.references[0]["reason_code"], "REFERENCE_PAYLOAD_HASH_MISMATCH")
             self.assertIn("payload_sha256", result.references[0]["error"])
             self.assertTrue(result.has_failures)
+            self.assertEqual(result.to_dict()["rejected_reasons_by_type"], {"REFERENCE_PAYLOAD_HASH_MISMATCH": 1})
 
 
 if __name__ == "__main__":
