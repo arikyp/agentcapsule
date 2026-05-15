@@ -13,7 +13,7 @@ from agentcapsule.envelope import BEGIN_MARKER, END_MARKER, build_envelope, pars
 from agentcapsule.errors import CapsuleError
 from agentcapsule.fetcher import fetch_capsule
 from agentcapsule.manifest import DEFAULT_CAPSULE_TYPE, DELIVERY_MODES, pack_path_with_manifest, unpack_payload
-from agentcapsule.policy import DEFAULT_POLICY, CapsulePolicy, load_policy
+from agentcapsule.policy import DEFAULT_POLICY, CapsulePolicy, load_policy, policy_to_dict
 from agentcapsule.scanner import scan_text as _scan_text
 from agentcapsule.signing import (
     SIGNATURE_ED25519,
@@ -70,6 +70,17 @@ class IngestResult:
     references: list[dict[str, object]]
     unpacked_files: list[str]
     malformed_blocks: int
+    scan_report: dict[str, object] | None = None
+
+    @property
+    def has_failures(self) -> bool:
+        if self.malformed_blocks:
+            return True
+        if any(item.get("status") == "invalid" for item in self.inline_capsules):
+            return True
+        if any(item.get("status") in {"invalid", "failed"} for item in self.references):
+            return True
+        return False
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -77,6 +88,7 @@ class IngestResult:
             "references": self.references,
             "unpacked_files": self.unpacked_files,
             "malformed_blocks": self.malformed_blocks,
+            "scan_report": self.scan_report,
         }
 
 
@@ -244,6 +256,7 @@ def ingest_messages(
     signature_registry: SignatureRegistry | str | Path | None = None,
     fetch_references: bool = True,
     resumable_fetch: bool = False,
+    include_scan_report: bool = True,
 ) -> IngestResult:
     policy_obj = _resolve_policy(policy)
     registry = _resolve_signature_registry(signature_registry)
@@ -256,6 +269,16 @@ def ingest_messages(
     malformed_blocks = 0
 
     message_texts = _coerce_messages(messages)
+    ingest_scan_report = None
+    if include_scan_report:
+        ingest_scan_report = _scan_report(
+            _scan_text(
+                "\n".join(message_texts),
+                policy=policy_obj,
+                signature_registry=registry,
+            ),
+            policy_obj,
+        )
     for index, text in enumerate(message_texts):
         blocks, malformed = _extract_inline_capsule_blocks(text)
         malformed_blocks += malformed
@@ -311,14 +334,20 @@ def ingest_messages(
 
             uri = str(descriptor["capsule_uri"])
             expected_sha = str(descriptor["capsule_sha256"])
+            expected_payload_sha = str(descriptor["payload_sha256"]).lower()
             ref_capsule_dir = out_root / "references"
             ref_capsule_dir.mkdir(parents=True, exist_ok=True)
             ref_path = ref_capsule_dir / f"message-{index:04d}-ref-{ref_idx:04d}.capsule.txt"
             try:
                 data = fetch_capsule(uri, expected_sha256=expected_sha, save_path=ref_path, resumable=resumable_fetch)
                 capsule_text = data.decode("utf-8")
+                envelope = parse_envelope(capsule_text)
+                actual_payload_sha = envelope.payload_sha256.lower()
+                if actual_payload_sha != expected_payload_sha:
+                    raise CapsuleError("reference descriptor payload_sha256 does not match fetched capsule")
                 ref_result["status"] = "fetched"
                 ref_result["capsule_path"] = str(ref_path)
+                ref_result["payload_sha256"] = actual_payload_sha
 
                 target_dir = out_root / "reference-unpacked" / f"message-{index:04d}-ref-{ref_idx:04d}"
                 unpacked = unpack_capsule(
@@ -343,6 +372,7 @@ def ingest_messages(
         references=references,
         unpacked_files=unpacked_files,
         malformed_blocks=malformed_blocks,
+        scan_report=ingest_scan_report,
     )
 
 
@@ -509,16 +539,31 @@ def _extract_reference_descriptors(text: str) -> list[dict[str, object]]:
 
 
 def _validate_reference_descriptor(descriptor: dict[str, object]) -> str | None:
-    required_fields = ("reference_type", "capsule_uri", "capsule_sha256")
+    required_fields = ("reference_type", "capsule_uri", "capsule_sha256", "payload_sha256")
     for field in required_fields:
         value = descriptor.get(field)
         if not isinstance(value, str) or not value:
             return f"reference descriptor missing valid field: {field}"
-    sha = str(descriptor["capsule_sha256"])
-    if len(sha) != 64:
-        return "reference descriptor capsule_sha256 must be a SHA256 hex string"
-    try:
-        int(sha, 16)
-    except ValueError:
-        return "reference descriptor capsule_sha256 must be a SHA256 hex string"
+    for field in ("capsule_sha256", "payload_sha256"):
+        sha = str(descriptor[field])
+        if len(sha) != 64:
+            return f"reference descriptor {field} must be a SHA256 hex string"
+        try:
+            int(sha, 16)
+        except ValueError:
+            return f"reference descriptor {field} must be a SHA256 hex string"
     return None
+
+
+def _scan_report(result, policy: CapsulePolicy) -> dict[str, object]:
+    return {
+        "report_type": "agent_capsule_governance_scan",
+        "schema_version": 1,
+        "capsules_detected": result.capsules_detected,
+        "valid_capsules": result.valid_capsules,
+        "invalid_capsules": result.invalid_capsules,
+        "risk_level": result.risk_level,
+        "reasons": result.reasons,
+        "policy": policy_to_dict(policy),
+        "findings": [finding.to_dict() for finding in result.findings],
+    }

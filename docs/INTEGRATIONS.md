@@ -26,6 +26,12 @@ Or the CLI equivalent:
 agentcapsule ingest thread.txt --out ./sandbox --policy ./policy.json --json
 ```
 
+For CI gates, fail on invalid/malformed ingestion:
+
+```bash
+agentcapsule ingest thread.txt --out ./sandbox --policy ./policy.json --json --strict
+```
+
 ## LangGraph
 
 Typical pattern: call `ingest_messages` inside the receiver node and store outputs in graph state.
@@ -73,6 +79,12 @@ For systems that provide plain message transcripts:
 
 ```bash
 agentcapsule ingest thread.txt --out ./sandbox --json
+```
+
+If you ingest reference descriptors (`capsule_uri`), install fetch support:
+
+```bash
+python3 -m pip install "agentcapsule[fetch]"
 ```
 
 For safe receiver order and policy details, see [RECEIVER_GUIDE.md](RECEIVER_GUIDE.md).

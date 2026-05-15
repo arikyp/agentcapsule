@@ -30,6 +30,12 @@ agentcapsule pack --help
 agentcapsule verify --help
 ```
 
+If receivers need to fetch reference capsules from `capsule_uri`, install fetch extras:
+
+```bash
+python3 -m pip install "agentcapsule[fetch]"
+```
+
 ## pipx Install
 
 For a user-local install on machines where you do not want to manage a project

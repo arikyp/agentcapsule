@@ -128,6 +128,13 @@ def main(argv: list[str] | None = None) -> int:
     ingest_parser.add_argument("--signature-registry", help="local JSON signature trust registry")
     ingest_parser.add_argument("--no-fetch-references", action="store_true", help="detect references but do not fetch")
     ingest_parser.add_argument("--resumable", action="store_true", help="attempt to resume partial reference downloads")
+    ingest_parser.add_argument(
+        "--strict",
+        "--fail-on-invalid",
+        dest="strict_ingest",
+        action="store_true",
+        help="exit non-zero when malformed blocks or invalid/failed capsule ingestion is detected",
+    )
     ingest_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
 
     codecs_parser = subparsers.add_parser("codecs", help="list registered capsule codecs")
@@ -375,6 +382,9 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"unpacked files: {len(result.unpacked_files)}")
                 for file_path in result.unpacked_files:
                     print(file_path)
+            if args.strict_ingest and result.has_failures:
+                print(_ingest_strict_failure_summary(result), file=sys.stderr)
+                return 2
             return 0
         if args.command == "codecs":
             codecs = [_codec_to_dict(codec) for codec in list_codecs()]
@@ -843,6 +853,19 @@ def _codec_to_dict(codec) -> dict[str, object]:
         "requires_external_model": codec.requires_external_model,
         "notes": codec.notes,
     }
+
+
+def _ingest_strict_failure_summary(result) -> str:
+    invalid_inline = sum(1 for item in result.inline_capsules if item.get("status") == "invalid")
+    invalid_references = sum(1 for item in result.references if item.get("status") == "invalid")
+    failed_references = sum(1 for item in result.references if item.get("status") == "failed")
+    return (
+        "ingest strict mode failed: "
+        f"malformed_blocks={result.malformed_blocks}, "
+        f"invalid_inline={invalid_inline}, "
+        f"invalid_references={invalid_references}, "
+        f"failed_references={failed_references}"
+    )
 
 
 def _print_json(payload: dict[str, object]) -> None:

@@ -302,7 +302,8 @@ class AgentCapsuleCliTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             inline_capsule = render_envelope(build_envelope(b"inline payload", filename="inline.txt"))
-            ref_capsule = render_envelope(build_envelope(b"reference payload", filename="reference.txt"))
+            ref_envelope = build_envelope(b"reference payload", filename="reference.txt")
+            ref_capsule = render_envelope(ref_envelope)
             ref_sha = hashlib.sha256(ref_capsule.encode("utf-8")).hexdigest()
             transcript = root / "thread.txt"
             transcript.write_text(
@@ -315,6 +316,7 @@ class AgentCapsuleCliTests(unittest.TestCase):
                             "schema_version": 1,
                             "capsule_uri": "https://example.test/capsules/ref-1.txt",
                             "capsule_sha256": ref_sha,
+                            "payload_sha256": ref_envelope.payload_sha256,
                         }
                     )
                     + "\n-----BEGIN AGENT CAPSULE-----\ntruncated\n"
@@ -340,7 +342,31 @@ class AgentCapsuleCliTests(unittest.TestCase):
             self.assertEqual(len(payload["inline_capsules"]), 1)
             self.assertEqual(len(payload["references"]), 1)
             self.assertEqual(payload["references"][0]["status"], "unpacked")
+            self.assertEqual(payload["scan_report"]["report_type"], "agent_capsule_governance_scan")
             self.assertEqual(len(payload["unpacked_files"]), 2)
+
+    def test_ingest_strict_returns_nonzero_on_invalid_reference(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            transcript = root / "thread.txt"
+            transcript.write_text(
+                json.dumps(
+                    {
+                        "reference_type": "agent_capsule_reference",
+                        "schema_version": 1,
+                        "capsule_uri": "https://example.test/capsules/ref-1.txt",
+                        "capsule_sha256": "0" * 64,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            out = root / "decoded"
+
+            status, stdout, stderr = _capture_cli(["ingest", str(transcript), "--out", str(out), "--strict"])
+
+            self.assertNotEqual(status, 0)
+            self.assertIn("references: 1", stdout)
+            self.assertIn("strict mode failed", stderr)
 
     def test_codecs_json_output(self) -> None:
         status, stdout, stderr = _capture_cli(["codecs", "--json"])
