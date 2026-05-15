@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Agent Capsule Protocol</title>
+  <meta name="description" content="Agent Capsule Protocol: verifiable artifact handoffs between agents.">
+  <style>
+    :root {
+      --bg-1: #f5f7fb;
+      --bg-2: #e8edf5;
+      --ink: #122030;
+      --muted: #42556b;
+      --card: #ffffff;
+      --line: #d2dbe6;
+      --accent: #0052cc;
+      --accent-2: #0e7a4f;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(80rem 40rem at -10% -10%, #ffffff 0%, transparent 60%),
+        radial-gradient(80rem 40rem at 120% -20%, #dbe7f7 0%, transparent 60%),
+        linear-gradient(170deg, var(--bg-1), var(--bg-2));
+      line-height: 1.45;
+    }
+
+    .wrap {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 2.5rem 1rem 3.5rem;
+    }
+
+    .hero {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 2rem;
+      box-shadow: 0 18px 40px rgba(22, 36, 52, 0.08);
+      animation: rise .45s ease-out;
+    }
+
+    h1 {
+      margin: 0 0 .6rem;
+      font-size: clamp(1.8rem, 4vw, 2.7rem);
+      letter-spacing: -.02em;
+    }
+
+    .lead {
+      margin: 0 0 1.1rem;
+      color: var(--muted);
+      font-size: clamp(1rem, 2.4vw, 1.18rem);
+      max-width: 70ch;
+    }
+
+    .btns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .65rem;
+      margin-top: 1.15rem;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: .64rem .92rem;
+      border-radius: 10px;
+      text-decoration: none;
+      border: 1px solid var(--line);
+      color: var(--ink);
+      background: #fff;
+      font-weight: 600;
+    }
+
+    .btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .grid {
+      margin-top: 1rem;
+      display: grid;
+      gap: .9rem;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: .95rem;
+    }
+
+    .card h2 {
+      margin: 0 0 .38rem;
+      font-size: 1rem;
+    }
+
+    .card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: .95rem;
+    }
+
+    .code {
+      margin-top: .95rem;
+      background: #0f1722;
+      color: #d6e2f0;
+      border-radius: 12px;
+      padding: .9rem;
+      overflow-x: auto;
+      font-size: .9rem;
+      border: 1px solid #1c2940;
+    }
+
+    .code strong { color: #8bd4ff; font-weight: 600; }
+
+    .note {
+      margin-top: .85rem;
+      font-size: .92rem;
+      color: #25435a;
+      background: #edf5fb;
+      border: 1px solid #c7ddeb;
+      border-radius: 10px;
+      padding: .65rem .75rem;
+    }
+
+    .footer {
+      margin-top: 1.2rem;
+      font-size: .86rem;
+      color: var(--muted);
+    }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <h1>Agent Capsule Protocol</h1>
+      <p class="lead">Verifiable, text-native artifact handoffs between agents. Pack, send, verify, and ingest safely across chat threads, A2A messages, and workflow frameworks.</p>
+
+      <div class="btns">
+        <a class="btn primary" href="https://github.com/arikyp/agentcapsule">GitHub Repository</a>
+        <a class="btn" href="https://pypi.org/project/agentcapsule/">PyPI Package</a>
+        <a class="btn" href="https://github.com/arikyp/agentcapsule/blob/main/docs/RECEIVER_GUIDE.md">Receiver Guide</a>
+      </div>
+
+      <div class="grid">
+        <article class="card">
+          <h2>Function</h2>
+          <p>Protect machine-readable handoffs from truncation, mutation, and ambiguity by wrapping payloads in a deterministic capsule format.</p>
+        </article>
+        <article class="card">
+          <h2>Value</h2>
+          <p>Receiver-side safety by default: policy checks, hash verification, optional signature trust, then sandboxed unpack.</p>
+        </article>
+        <article class="card">
+          <h2>Integration</h2>
+          <p>One command and one SDK call for adoption: <code>agentcapsule ingest ...</code> and <code>ingest_messages(...)</code>.</p>
+        </article>
+      </div>
+
+      <pre class="code"><strong># 60-second quickstart</strong>
+python3 -m pip install agentcapsule
+agentcapsule pack payload.json --out capsule.txt
+agentcapsule verify capsule.txt
+agentcapsule unpack capsule.txt --out decoded</pre>
+
+      <div class="note">For framework usage (LangGraph, CrewAI, LlamaIndex patterns), see <a href="https://github.com/arikyp/agentcapsule/blob/main/docs/INTEGRATIONS.md">docs/INTEGRATIONS.md</a>.</div>
+
+      <p class="footer">Copyright © Agent Capsule contributors.</p>
+    </section>
+  </main>
+</body>
+</html>
