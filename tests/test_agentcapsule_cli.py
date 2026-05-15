@@ -356,6 +356,7 @@ class AgentCapsuleCliTests(unittest.TestCase):
             self.assertEqual(payload["references"][0]["stage"], "unpack")
             self.assertEqual(payload["references"][0]["reason_code"], None)
             self.assertEqual(payload["scan_report"]["report_type"], "agent_capsule_governance_scan")
+            self.assertEqual(payload["scan_report"]["disposition"], "block")
             self.assertEqual(len(payload["unpacked_files"]), 2)
 
     def test_ingest_strict_returns_nonzero_on_invalid_reference(self) -> None:

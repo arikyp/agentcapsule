@@ -61,6 +61,7 @@ class AgentCapsuleReceiverTests(unittest.TestCase):
             self.assertEqual(result.inline_capsules[0]["reason_code"], None)
             self.assertTrue(result.references[0]["accepted"])
             self.assertEqual(result.references[0]["fetched"], True)
+            self.assertEqual(result.scan_report["disposition"], "block")
 
             payload = result.to_dict()
             self.assertEqual(payload["report_type"], "agent_capsule_ingest_report")

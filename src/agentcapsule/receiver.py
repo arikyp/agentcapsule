@@ -742,6 +742,7 @@ def _scan_report(result, policy: CapsulePolicy) -> dict[str, object]:
     return {
         "report_type": "agent_capsule_governance_scan",
         "schema_version": 1,
+        "disposition": _scan_disposition(result.risk_level),
         "capsules_detected": result.capsules_detected,
         "valid_capsules": result.valid_capsules,
         "invalid_capsules": result.invalid_capsules,
@@ -750,3 +751,11 @@ def _scan_report(result, policy: CapsulePolicy) -> dict[str, object]:
         "policy": policy_to_dict(policy),
         "findings": [finding.to_dict() for finding in result.findings],
     }
+
+
+def _scan_disposition(risk_level: str) -> str:
+    if risk_level == "high":
+        return "block"
+    if risk_level == "medium":
+        return "review"
+    return "allow"
