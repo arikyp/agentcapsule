@@ -4,181 +4,328 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Agent Capsule Protocol</title>
-  <meta name="description" content="Agent Capsule Protocol: verifiable artifact handoffs between agents.">
+  <meta name="description" content="Agent Capsule: the verifiable handoff format for agents.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-1: #f5f7fb;
-      --bg-2: #e8edf5;
-      --ink: #122030;
-      --muted: #42556b;
-      --card: #ffffff;
-      --line: #d2dbe6;
-      --accent: #0052cc;
-      --accent-2: #0e7a4f;
+      --bg: #f3f6f2;
+      --ink: #10211d;
+      --muted: #3f5650;
+      --line: #c8d5cf;
+      --panel: #fbfcfa;
+      --accent: #136f63;
+      --accent-ink: #eafaf6;
+      --code-bg: #0f1e1b;
+      --code-line: #274440;
+      --shadow: 0 16px 36px rgba(10, 28, 24, 0.12);
     }
 
     * { box-sizing: border-box; }
 
     body {
       margin: 0;
-      font-family: ui-sans-serif, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
       color: var(--ink);
+      font-family: "Space Grotesk", "Segoe UI", sans-serif;
       background:
-        radial-gradient(80rem 40rem at -10% -10%, #ffffff 0%, transparent 60%),
-        radial-gradient(80rem 40rem at 120% -20%, #dbe7f7 0%, transparent 60%),
-        linear-gradient(170deg, var(--bg-1), var(--bg-2));
+        radial-gradient(48rem 24rem at 5% -5%, #ffffff 0%, transparent 65%),
+        radial-gradient(42rem 21rem at 95% -10%, #dcebe5 0%, transparent 62%),
+        linear-gradient(160deg, #edf3ef 0%, #e8f0eb 30%, var(--bg) 100%);
       line-height: 1.45;
     }
 
-    .wrap {
-      max-width: 980px;
+    .shell {
+      max-width: 1060px;
       margin: 0 auto;
-      padding: 2.5rem 1rem 3.5rem;
+      padding: 1.2rem 1rem 3rem;
     }
 
-    .hero {
-      background: var(--card);
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      padding: .5rem .75rem;
       border: 1px solid var(--line);
-      border-radius: 18px;
-      padding: 2rem;
-      box-shadow: 0 18px 40px rgba(22, 36, 52, 0.08);
-      animation: rise .45s ease-out;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.52);
+      backdrop-filter: blur(4px);
+    }
+
+    .brand {
+      font-weight: 700;
+      letter-spacing: .01em;
+      font-size: .98rem;
+    }
+
+    .topbar a {
+      color: var(--ink);
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      margin-left: 1rem;
+      font-size: .92rem;
+    }
+
+    .topbar a:hover { border-bottom-color: var(--ink); }
+
+    .hero {
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: linear-gradient(140deg, rgba(255, 255, 255, .95), rgba(246, 251, 248, .95));
+      box-shadow: var(--shadow);
+      padding: clamp(1.4rem, 2.6vw, 2.1rem);
+    }
+
+    .tag {
+      display: inline-block;
+      padding: .3rem .52rem;
+      border: 1px solid #b8cbc4;
+      border-radius: 999px;
+      font-size: .75rem;
+      font-weight: 600;
+      letter-spacing: .03em;
+      text-transform: uppercase;
+      color: #20453e;
+      background: #ebf6f2;
+      margin-bottom: .72rem;
     }
 
     h1 {
-      margin: 0 0 .6rem;
-      font-size: clamp(1.8rem, 4vw, 2.7rem);
-      letter-spacing: -.02em;
+      margin: 0;
+      font-size: clamp(1.8rem, 4.5vw, 3.2rem);
+      line-height: 1.05;
+      letter-spacing: -.025em;
+      max-width: 16ch;
     }
 
     .lead {
-      margin: 0 0 1.1rem;
+      margin: .8rem 0 0;
       color: var(--muted);
-      font-size: clamp(1rem, 2.4vw, 1.18rem);
-      max-width: 70ch;
+      max-width: 68ch;
+      font-size: clamp(1rem, 1.9vw, 1.18rem);
     }
 
-    .btns {
+    .actions {
       display: flex;
       flex-wrap: wrap;
-      gap: .65rem;
-      margin-top: 1.15rem;
+      gap: .62rem;
+      margin-top: 1.1rem;
     }
 
     .btn {
       display: inline-block;
-      padding: .64rem .92rem;
-      border-radius: 10px;
       text-decoration: none;
-      border: 1px solid var(--line);
       color: var(--ink);
       background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 10px;
       font-weight: 600;
+      font-size: .9rem;
+      padding: .6rem .88rem;
     }
 
     .btn.primary {
       background: var(--accent);
+      color: var(--accent-ink);
       border-color: var(--accent);
-      color: #fff;
+    }
+
+    .proof {
+      margin-top: 1.05rem;
+      border: 1px solid var(--code-line);
+      border-radius: 14px;
+      background: var(--code-bg);
+      color: #dcf5ee;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: .88rem;
+      padding: .9rem 1rem;
+      overflow: auto;
+    }
+
+    .proof .title {
+      display: block;
+      color: #80d6c4;
+      margin-bottom: .45rem;
+      font-weight: 600;
+    }
+
+    .proof-note {
+      margin-top: .65rem;
+      color: #295148;
+      font-size: .9rem;
+      background: #e8f4ef;
+      border: 1px solid #b9d8cd;
+      border-radius: 10px;
+      padding: .6rem .75rem;
+    }
+
+    .section {
+      margin-top: 1rem;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--panel);
+      padding: 1rem;
+    }
+
+    .section h2 {
+      margin: 0 0 .55rem;
+      font-size: 1.2rem;
+      letter-spacing: -.01em;
+    }
+
+    .section p {
+      margin: .35rem 0 .65rem;
+      color: var(--muted);
     }
 
     .grid {
-      margin-top: 1rem;
       display: grid;
-      gap: .9rem;
-      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: .75rem;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
     }
 
     .card {
-      background: var(--card);
       border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: .95rem;
+      border-radius: 12px;
+      background: #fff;
+      padding: .82rem;
     }
 
-    .card h2 {
-      margin: 0 0 .38rem;
-      font-size: 1rem;
+    .card h3 {
+      margin: 0 0 .3rem;
+      font-size: .95rem;
     }
 
     .card p {
       margin: 0;
-      color: var(--muted);
-      font-size: .95rem;
-    }
-
-    .code {
-      margin-top: .95rem;
-      background: #0f1722;
-      color: #d6e2f0;
-      border-radius: 12px;
-      padding: .9rem;
-      overflow-x: auto;
       font-size: .9rem;
-      border: 1px solid #1c2940;
+      color: var(--muted);
     }
 
-    .code strong { color: #8bd4ff; font-weight: 600; }
+    .list {
+      margin: .25rem 0 0;
+      padding-left: 1rem;
+      color: var(--muted);
+    }
 
-    .note {
-      margin-top: .85rem;
-      font-size: .92rem;
-      color: #25435a;
-      background: #edf5fb;
-      border: 1px solid #c7ddeb;
+    .list li { margin: .35rem 0; }
+
+    .mini {
+      margin-top: .8rem;
+      border: 1px solid var(--line);
       border-radius: 10px;
+      background: #f7fbf8;
       padding: .65rem .75rem;
+      font-size: .88rem;
+      color: #27463f;
     }
 
     .footer {
-      margin-top: 1.2rem;
-      font-size: .86rem;
-      color: var(--muted);
+      margin-top: 1.1rem;
+      text-align: center;
+      color: #48625b;
+      font-size: .85rem;
     }
 
-    @keyframes rise {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
+    @media (max-width: 700px) {
+      .topbar { flex-wrap: wrap; gap: .45rem; }
+      .topbar nav a { margin-left: .7rem; }
     }
   </style>
 </head>
 <body>
-  <main class="wrap">
-    <section class="hero">
-      <h1>Agent Capsule Protocol</h1>
-      <p class="lead">Verifiable, text-native artifact handoffs between agents. Pack, send, verify, and ingest safely across chat threads, A2A messages, and workflow frameworks.</p>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">Agent Capsule Protocol</div>
+      <nav>
+        <a href="https://github.com/arikyp/agentcapsule">GitHub</a>
+        <a href="https://pypi.org/project/agentcapsule/">PyPI</a>
+        <a href="https://github.com/arikyp/agentcapsule/blob/main/docs/RECEIVER_GUIDE.md">Receiver Guide</a>
+      </nav>
+    </header>
 
-      <div class="btns">
-        <a class="btn primary" href="https://github.com/arikyp/agentcapsule">GitHub Repository</a>
-        <a class="btn" href="https://pypi.org/project/agentcapsule/">PyPI Package</a>
-        <a class="btn" href="https://github.com/arikyp/agentcapsule/blob/main/docs/RECEIVER_GUIDE.md">Receiver Guide</a>
+    <section class="hero">
+      <span class="tag">Open Protocol + Toolkit</span>
+      <h1>Verifiable Handoffs For Agents</h1>
+      <p class="lead">Agent Capsule wraps machine payloads in a text-native envelope so receivers can ingest, verify, policy-check, and unpack safely across existing channels.</p>
+
+      <div class="actions">
+        <a class="btn primary" href="https://github.com/arikyp/agentcapsule">View Repository</a>
+        <a class="btn" href="https://github.com/arikyp/agentcapsule/blob/main/README.md">Read README</a>
+        <a class="btn" href="https://github.com/arikyp/agentcapsule/blob/main/docs/INTEGRATIONS.md">Integration Patterns</a>
       </div>
 
+      <pre class="proof"><span class="title">2-minute proof</span>python3 -m pip install agentcapsule
+agentcapsule pack handoff.json --out capsule.txt
+agentcapsule ingest thread.txt --out ./sandbox --strict --json</pre>
+      <div class="proof-note">Strict mode exits non-zero on malformed or invalid ingestion. Use it as a CI/governance gate.</div>
+    </section>
+
+    <section class="section">
+      <h2>What Changes</h2>
+      <p>Typical agent threads are lossy for machine payloads. Agent Capsule turns handoffs into verifiable artifacts.</p>
       <div class="grid">
         <article class="card">
-          <h2>Function</h2>
-          <p>Protect machine-readable handoffs from truncation, mutation, and ambiguity by wrapping payloads in a deterministic capsule format.</p>
+          <h3>Before</h3>
+          <p>Payloads move as free-form text and can be truncated, reformatted, or silently edited.</p>
         </article>
         <article class="card">
-          <h2>Value</h2>
-          <p>Receiver-side safety by default: policy checks, hash verification, optional signature trust, then sandboxed unpack.</p>
+          <h3>After</h3>
+          <p>Receivers verify `capsule_sha256`, `payload_sha256`, signature/trust policy, then unpack to sandbox.</p>
         </article>
         <article class="card">
-          <h2>Integration</h2>
-          <p>One command and one SDK call for adoption: <code>agentcapsule ingest ...</code> and <code>ingest_messages(...)</code>.</p>
+          <h3>Adoption</h3>
+          <p>One command and one function: `agentcapsule ingest ...` and `ingest_messages(...)`.</p>
         </article>
       </div>
-
-      <pre class="code"><strong># 60-second quickstart</strong>
-python3 -m pip install agentcapsule
-agentcapsule pack payload.json --out capsule.txt
-agentcapsule verify capsule.txt
-agentcapsule unpack capsule.txt --out decoded</pre>
-
-      <div class="note">For framework usage (LangGraph, CrewAI, LlamaIndex patterns), see <a href="https://github.com/arikyp/agentcapsule/blob/main/docs/INTEGRATIONS.md">docs/INTEGRATIONS.md</a>.</div>
-
-      <p class="footer">Copyright © Agent Capsule contributors.</p>
     </section>
+
+    <section class="section">
+      <h2>Protocol Shape</h2>
+      <div class="grid">
+        <article class="card">
+          <h3>Capsule</h3>
+          <p>Exact payload bytes plus metadata and verification context.</p>
+        </article>
+        <article class="card">
+          <h3>Envelope</h3>
+          <p>Text wire format with boundaries, headers, and encoded payload.</p>
+        </article>
+        <article class="card">
+          <h3>Manifest</h3>
+          <p>Handoff intent: creator, task ID, files, capabilities, policy hints.</p>
+        </article>
+        <article class="card">
+          <h3>Delivery</h3>
+          <p>Inline, attachment, or reference (URI + capsule hash + payload hash).</p>
+        </article>
+      </div>
+      <div class="mini">Agent Capsule is not a transport platform. It travels through chat, email, tickets, GitHub, A2A/MCP, and object storage.</div>
+    </section>
+
+    <section class="section">
+      <h2>Safe Receiver Order</h2>
+      <ol class="list">
+        <li>Scan inbound text for capsules/references.</li>
+        <li>Apply local policy checks.</li>
+        <li>Fetch references and verify descriptor hashes.</li>
+        <li>Verify capsule metadata, integrity, and trust policy.</li>
+        <li>Unpack only verified payloads into sandbox.</li>
+      </ol>
+    </section>
+
+    <section class="section">
+      <h2>Practical Start</h2>
+      <p>Start with base64 + SHA256 verification. Add signatures, trust registry, encryption, compression, and resumable fetch when needed.</p>
+      <div class="actions">
+        <a class="btn" href="https://github.com/arikyp/agentcapsule/blob/main/docs/QUICKSTART.md">Quickstart</a>
+        <a class="btn" href="https://github.com/arikyp/agentcapsule/blob/main/docs/RECEIVER_GUIDE.md">Receiver Guide</a>
+        <a class="btn" href="https://github.com/arikyp/agentcapsule/blob/main/docs/AGENT_CAPSULE_PROTOCOL_V0.md">Protocol Spec</a>
+      </div>
+    </section>
+
+    <p class="footer">Agent Capsule contributors · Apache-2.0</p>
   </main>
 </body>
 </html>

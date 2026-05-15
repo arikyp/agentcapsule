@@ -4,106 +4,30 @@
 [![PyPI](https://img.shields.io/pypi/v/agentcapsule.svg)](https://pypi.org/project/agentcapsule/)
 [![License](https://img.shields.io/pypi/l/agentcapsule.svg)](LICENSE)
 
-Agent Capsule is a text-native container for exact machine-readable handoffs between agents.
+Agent Capsule is the verifiable handoff format for agents.
 
-It solves one core problem: agent-to-agent payloads often break when moved through chat, tickets, prompts, or email. Agent Capsule makes those payloads verifiable before use.
+It is a small open protocol + developer toolkit for safe agent handoffs. It wraps exact machine-readable payloads in a text-native envelope so receivers can detect, verify, policy-check, and unpack safely.
 
-## Why Teams Adopt It
-
-- Fewer broken handoffs: payload integrity is explicit (`payload_sha256`).
-- Safer automation: verify before unpack/use.
-- Better governance posture: local policy checks, audit-friendly flow, optional signature trust controls.
-- Easy rollout: one CLI and one Python API, no service dependency required.
-
-## What Engineers Get
-
-- Deterministic envelope with metadata + hash.
-- Delivery modes for real systems: inline, attachment, reference.
-- Receiver kit with one command and one function.
-- Optional hardening: HMAC/Ed25519, AES-256-GCM, zstd, resumable fetch.
-
-## 60-Second Quickstart
+## 2-Minute Proof
 
 ```bash
 python3 -m pip install agentcapsule
-printf '{"task":"sync","items":[1,2,3]}\n' > payload.json
-agentcapsule pack payload.json --out capsule.txt
-agentcapsule verify capsule.txt
-agentcapsule unpack capsule.txt --out decoded
-cmp payload.json decoded/payload.json
+agentcapsule pack handoff.json --out capsule.txt
+agentcapsule ingest thread.txt --out ./sandbox --strict --json
 ```
 
-If `cmp` prints nothing, the handoff is byte-perfect.
+If ingest exits `0`, the handoff passed verification/policy and unpacked safely.
+If ingest exits non-zero in `--strict`, treat it as a CI/governance failure.
 
-## Fast Integration Path
+## One Command, One Function
 
-Without Agent Capsule:
-
-- Payloads are often copied as free-form text.
-- Truncation, formatting damage, or silent edits are common.
-- Receivers lack a consistent trust and verification path.
-
-With Agent Capsule:
-
-- Payload integrity is explicit (`payload_sha256`).
-- Signature and trust checks are policy-driven.
-- Unpack happens only after verification.
-- Receiver behavior is consistent across frameworks.
-
-## Install
-
-### PyPI
+CLI:
 
 ```bash
-python3 -m pip install agentcapsule
+agentcapsule ingest thread.txt --out ./sandbox --policy ./policy.json --json --strict
 ```
 
-### Full Optional Capabilities
-
-```bash
-python3 -m pip install "agentcapsule[all]"
-```
-
-Includes optional extras for signing, compression, and remote fetch.
-
-### Project / CI Environment
-
-```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install -e ".[all]"
-```
-
-### pipx
-
-```bash
-pipx install agentcapsule
-```
-
-## Sender: Pack And Send
-
-Pack payloads from file or directory:
-
-```bash
-agentcapsule pack handoff.json --out handoff.capsule.txt
-```
-
-Create a reference descriptor for out-of-band storage:
-
-```bash
-agentcapsule reference handoff.capsule.txt \
-  --uri https://capsules.example/handoff/abc123 \
-  --json > handoff.reference.json
-```
-
-## Receiver: Ingest Safely
-
-CLI path:
-
-```bash
-agentcapsule ingest thread.txt --out ./sandbox --policy policy.json --json
-```
-
-Python path:
+Python:
 
 ```python
 from agentcapsule import ingest_messages
@@ -119,13 +43,17 @@ print(result.references)
 print(result.unpacked_files)
 ```
 
-This is the fastest way to integrate into an existing agent framework.
+## What It Solves
 
-## Deploy In CI / Services
+Normal agent channels are lossy for machine payloads (truncation, formatting drift, silent edits).
+Agent Capsule turns handoffs into verifiable artifacts.
 
-- CI: run `agentcapsule verify` as a gate before executing inbound artifacts.
-- Services: call `ingest_messages(...)` in your receiver handler and pass your local policy file.
-- Rollout model: start with unsigned Base64 + hash verification, then enforce signature trust policy by environment.
+## Protocol Layers
+
+- Capsule: exact payload bytes + metadata + hash/signature context.
+- Envelope: text wire format with boundary markers, headers, and encoded payload.
+- Manifest: handoff intent (creator, task, files, capabilities, policy hints).
+- Delivery modes: inline, attachment, reference (URI + capsule hash + payload hash).
 
 ## Delivery Modes
 
@@ -133,7 +61,12 @@ This is the fastest way to integrate into an existing agent framework.
 - `attachment`: full capsule as file/blob.
 - `reference`: descriptor in message, full capsule fetched by URI.
 
-Reference descriptors are not authoritative by themselves. Receivers must fetch the full capsule and verify `capsule_sha256`, payload hash, and policy requirements.
+Reference descriptors are not authoritative by themselves. Receivers must fetch the full capsule and verify `capsule_sha256`, `payload_sha256`, signature trust policy, and receiver policy.
+
+## Not A Transport Platform
+
+Agent Capsule does not replace transport. It travels through existing systems:
+chat, tickets, email, GitHub, A2A/MCP workflows, and object storage.
 
 ## Security And Trust Model
 
@@ -141,7 +74,7 @@ Baseline:
 
 - SHA256 payload integrity checks.
 - Local policy checks.
-- Safe unpacking into chosen output directory.
+- Safe unpacking into a chosen output directory.
 
 Optional hardening:
 
@@ -151,18 +84,34 @@ Optional hardening:
 - Zstandard compression.
 - Resumable reference fetching.
 
-## Typical Production Flow
+## Typical Flow
 
-1. Sender packs payload and optional signature metadata.
-2. Sender transports capsule inline/attachment/reference.
-3. Receiver scans inbound text.
-4. Receiver verifies metadata, hash, signature trust, and policy.
+1. Sender packs payload into a capsule.
+2. Sender transports inline/attachment/reference.
+3. Receiver scans and ingests.
+4. Receiver verifies metadata, hashes, signature trust, and policy.
 5. Receiver unpacks verified payload into sandbox.
-6. Receiver executes downstream logic on unpacked files.
+6. Receiver runs downstream logic on unpacked files.
 
-## Scope
+## Install
 
-Stable default path is Base64 capsule transfer and verification.
+PyPI:
+
+```bash
+python3 -m pip install agentcapsule
+```
+
+Full optional capabilities:
+
+```bash
+python3 -m pip install "agentcapsule[all]"
+```
+
+Reference fetching support only:
+
+```bash
+python3 -m pip install "agentcapsule[fetch]"
+```
 
 ## Docs
 
