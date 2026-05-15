@@ -84,6 +84,14 @@ Optional hardening:
 - Zstandard compression.
 - Resumable reference fetching.
 
+## Current Limitations
+
+- No hosted trust service: signature trust resolution is local-file policy/registry driven.
+- No remote/global key-discovery protocol yet: receivers must supply local trust inputs.
+- No first-party JS/TS reference implementation yet.
+- Governance output is JSON-first; there is no built-in long-running dashboard service.
+- Reference fetching requires optional install extras (`agentcapsule[fetch]` or `agentcapsule[all]`).
+
 ## Typical Flow
 
 1. Sender packs payload into a capsule.

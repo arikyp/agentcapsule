@@ -4,6 +4,19 @@ All notable changes to Agent Capsule are tracked here.
 
 ## Unreleased
 
+- Added a stable machine-readable ingest report contract with top-level
+  `report_type`, `schema_version`, `disposition`, accepted/rejected counters,
+  rejected reason aggregation, and `effective_policy`.
+- Added structured ingest error taxonomy fields on inline/reference results:
+  `accepted`, `stage`, `reason_code`, and `reason_message`.
+- Expanded reference result ergonomics with expected/actual hash fields
+  (`capsule_sha256_*`, `payload_sha256_*`) while keeping `descriptor` for
+  backward compatibility.
+- Added `agentcapsule policy show --json` with effective policy and fetch
+  defaults for governance/enterprise evaluation.
+- Aligned nested ingest `scan_report` with scan CLI output by adding
+  `disposition`.
+
 ## 0.1.3
 
 - Added strict receiver ingest mode via `agentcapsule ingest --strict`
