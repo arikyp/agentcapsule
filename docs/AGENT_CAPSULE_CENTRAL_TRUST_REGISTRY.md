@@ -1,7 +1,7 @@
 # Agent Capsule Central Trust Registry
 
 The current implementation uses a local JSON signature registry. That is enough
-for demos and CI, but enterprise deployments need a central trust model that is
+for demos and CI, but larger deployments need a central trust model that is
 easy to audit, cache, and reason about.
 
 The elegant version is a signed registry snapshot model, not a mandatory online
@@ -23,7 +23,7 @@ A central registry should publish signed snapshots:
 ```json
 {
   "registry_version": 1,
-  "issuer": "example-enterprise-agent-trust",
+  "issuer": "example-agent-trust",
   "sequence": 42,
   "created_at": "2026-05-10T00:00:00Z",
   "expires_at": "2026-05-17T00:00:00Z",
@@ -72,7 +72,7 @@ Snapshots are operationally cleaner than always-online lookup:
 Suggested chain:
 
 ```text
-enterprise root registry key
+root registry key
   -> signs registry snapshots
   -> snapshots list trusted agent/publisher keys
   -> agent keys sign capsules
@@ -88,7 +88,7 @@ Future capsule headers can include registry hints without making verification
 depend on a network call:
 
 ```text
-signature_registry_issuer: example-enterprise-agent-trust
+signature_registry_issuer: example-agent-trust
 signature_registry_sequence: 42
 signature_scope: handoff:engineering
 ```
@@ -114,4 +114,3 @@ Non-goals for the next branch:
 
 The next implementation branch should make local registry snapshots signed and
 schema-versioned before adding any network distribution.
-

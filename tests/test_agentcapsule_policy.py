@@ -113,10 +113,10 @@ class AgentCapsulePolicyTests(unittest.TestCase):
         self.assertEqual(result.risk_level, "high")
 
     def test_registry_describes_installed_codecs(self) -> None:
-        self.assertEqual(known_codecs(), ("base64", "lmcodec-fixed", "lmcodec-ngram-v2"))
-        self.assertEqual([codec.name for codec in list_codecs()], ["base64", "lmcodec-fixed", "lmcodec-ngram-v2"])
+        self.assertEqual(known_codecs(), ("base64",))
+        self.assertEqual([codec.name for codec in list_codecs()], ["base64"])
         self.assertEqual(describe_codec("base64").purpose, "stable interoperability baseline")
-        self.assertEqual(describe_codec("lmcodec-ngram-v2").purpose, "self-contained LMCodec n-gram capsule backend")
+        self.assertIsNone(describe_codec("unknown-codec"))
         self.assertIsNone(describe_codec("missing"))
 
 

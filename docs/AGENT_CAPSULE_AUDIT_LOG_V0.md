@@ -77,14 +77,11 @@ capsule verify capsule.txt \
   --audit-json
 ```
 
-## Demo
+## Validation
 
 ```bash
-PYTHON=.venv/bin/python sh scripts/demo_agent_capsule_audit.sh
+PYTHONPATH=src python3 -m unittest tests.test_agentcapsule_audit
 ```
-
-The demo emits allow, review, and block audit events. If `cryptography` is
-installed through `agentcapsule[signing]`, it also emits a registry-trusted Ed25519
-verification event.
-When that signed path is being validated, the signing extra must be installed
-before the run starts.
+The test covers allow/review/block audit event behavior. If `cryptography` is
+installed through `agentcapsule[signing]`, Ed25519 verification audit paths are
+also exercised by signing-related tests.

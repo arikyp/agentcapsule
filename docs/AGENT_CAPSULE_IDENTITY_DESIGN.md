@@ -1,6 +1,6 @@
 # Agent Capsule Identity & Trust Design
 
-This document specifies the evolution of the Agent Capsule trust system from a local static file to a more flexible identity and registry system suitable for production and enterprise environments.
+This document specifies the evolution of the Agent Capsule trust system from a local static file to a more flexible identity and registry system suitable for production environments.
 
 ## Current State (V0)
 - `SignatureRegistry` loads from a local JSON file.
@@ -16,13 +16,13 @@ Proposed structure for a `TrustedIdentity`:
 
 ```json
 {
-  "identity_id": "org.openai.research.gpt5",
-  "display_name": "OpenAI GPT-5 Research Agent",
-  "organization": "OpenAI",
-  "domain": "openai.com",
+  "identity_id": "org.example.research.agent-a",
+  "display_name": "Example Research Agent A",
+  "organization": "Example Org",
+  "domain": "example.org",
   "public_keys": [
     {
-      "key_id": "gpt5-prod-2026-01",
+      "key_id": "agent-a-prod-2026-01",
       "fingerprint": "...",
       "status": "trusted",
       "expires_at": "2027-01-01T00:00:00Z"
@@ -36,7 +36,7 @@ Proposed structure for a `TrustedIdentity`:
 The `IdentityRegistry` should be able to load identities from:
 - **Local Files:** (existing behavior)
 - **Environment Variables:** For ephemeral or CI/CD trust.
-- **Remote URIs:** Fetching a signed registry from a trusted source (e.g., `https://trust.openai.com/capsule-keys.json`).
+- **Remote URIs:** Fetching a signed registry from a trusted source (e.g., `https://trust.example.org/capsule-keys.json`).
 
 ### 3. Key Revocation & Expiry
 - Support `revoked_at` and `expires_at` fields in key entries.
@@ -47,7 +47,7 @@ Policy should be able to require identities from specific organizations or domai
 
 ```json
 {
-  "allowed_organizations": ["OpenAI", "Anthropic"],
+  "allowed_organizations": ["Example Org A", "Example Org B"],
   "require_identity_match": true
 }
 ```
@@ -75,8 +75,8 @@ capsule verify --signature-registry https://trust.example.com/keys.json ...
 # Inspect with identity details
 capsule inspect --signature-registry trusted-identities.json ...
 # Output:
-# Signature Identity: OpenAI GPT-5 Research Agent (org.openai.research.gpt5)
-# Organization: OpenAI
+# Signature Identity: Example Research Agent A (org.example.research.agent-a)
+# Organization: Example Org
 # Trust Status: Trusted (Verified via Remote Registry)
 ```
 

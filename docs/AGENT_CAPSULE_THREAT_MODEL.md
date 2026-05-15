@@ -178,7 +178,7 @@ The committed examples live under `examples/agent_capsule_demo/`.
 - `high` -> `block`
 
 This is intentionally simple. It is a local report format for demos, CI, and
-agent traces, not a final enterprise enforcement engine.
+agent traces, not a final enforcement engine.
 
 ## Safe Receive Flow
 

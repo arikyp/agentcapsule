@@ -164,8 +164,6 @@ Optional hardening:
 
 Stable default path is Base64 capsule transfer and verification.
 
-This repository also includes a `legacy/lmcodec/` subtree for historical LMCodec research and assets. Agent Capsule is the active project surface.
-
 ## Docs
 
 - [docs/QUICKSTART.md](docs/QUICKSTART.md)
@@ -173,5 +171,7 @@ This repository also includes a `legacy/lmcodec/` subtree for historical LMCodec
 - [docs/INSTALL.md](docs/INSTALL.md)
 - [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)
 - [docs/AGENT_CAPSULE_PROTOCOL_V0.md](docs/AGENT_CAPSULE_PROTOCOL_V0.md)
+- [docs/AGENT_CAPSULE_ED25519_DESIGN.md](docs/AGENT_CAPSULE_ED25519_DESIGN.md)
+- [docs/AGENT_CAPSULE_AUDIT_LOG_V0.md](docs/AGENT_CAPSULE_AUDIT_LOG_V0.md)
 - [docs/TESTING.md](docs/TESTING.md)
 - [docs/ROADMAP.md](docs/ROADMAP.md)

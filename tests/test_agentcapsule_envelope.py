@@ -106,7 +106,7 @@ class AgentCapsuleEnvelopeTests(unittest.TestCase):
             encryption_key=key,
             filename="payload.bin",
             created_by="agent-a",
-            extra_headers={"lmcodec_model_type": "ngram-v1"},
+            extra_headers={"codec_profile": "test-v1"},
         )
         parsed = parse_envelope(render_envelope(envelope))
         self.assertEqual(verify_envelope(parsed, encryption_key=key), b"payload")
@@ -122,9 +122,9 @@ class AgentCapsuleEnvelopeTests(unittest.TestCase):
         envelope = build_envelope(
             b"payload",
             encryption_key=key,
-            extra_headers={"lmcodec_model_type": "ngram-v1"},
+            extra_headers={"codec_profile": "test-v1"},
         )
-        tampered_text = render_envelope(envelope).replace("lmcodec_model_type: ngram-v1", "lmcodec_model_type: ngram-v2", 1)
+        tampered_text = render_envelope(envelope).replace("codec_profile: test-v1", "codec_profile: test-v2", 1)
         tampered = parse_envelope(tampered_text)
         with self.assertRaisesRegex(CapsuleVerificationError, "decryption failed"):
             verify_envelope(tampered, encryption_key=key)

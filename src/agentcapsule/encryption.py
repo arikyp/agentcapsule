@@ -111,5 +111,5 @@ def _cryptography_aesgcm():
     try:
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
     except ImportError as exc:
-        raise CapsuleVerificationError("encryption support requires installing lmcodec[signing]") from exc
+        raise CapsuleVerificationError("encryption support requires installing agentcapsule[signing]") from exc
     return AESGCM

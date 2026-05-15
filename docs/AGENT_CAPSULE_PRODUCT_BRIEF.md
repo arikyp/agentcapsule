@@ -1,12 +1,12 @@
-# Agent Capsule Product Brief
+# Agent Capsule Protocol Brief
 
-Agent Capsule Protocol is the product. It defines an inspectable,
-verifiable artifact-transfer and governance primitive for agent and
-text-native channels. Base64 is the primary V0 payload path.
+Agent Capsule Protocol defines an inspectable, verifiable artifact-transfer and
+governance primitive for agent and text-native channels. Base64 is the primary
+V0 payload path.
 
-## Product Thesis
+## Protocol Thesis
 
-AI systems operate through text, but enterprise workflows require exact state.
+AI systems operate through text, but many workflows require exact state.
 Natural-language summaries help humans and agents orient themselves, but they
 cannot safely replace byte-exact artifacts. Agent Capsules let a sender provide
 a readable handoff plus an exact encoded payload that can be inspected,
@@ -29,9 +29,9 @@ payloads in text channels. A receiving system can scan for capsules and dense
 payloads, require inspection before decode, enforce known codecs, verify
 hashes, and unpack only into sandbox directories.
 
-## Commercial Wedge
+## Governance Capability
 
-CapsuleGuard / AI text channel governance:
+Agent Capsule text-channel governance:
 
 - detect exact-payload artifacts in text channels,
 - distinguish declared capsules from suspicious dense text,
@@ -42,7 +42,7 @@ CapsuleGuard / AI text channel governance:
 - emit consistent allow/review/block audit events for inspect, verify, unpack,
   and scan,
 - surface typed scan findings with source location and capped evidence,
-- later add signatures, registry policy, and channel integrations.
+- add signatures, registry policy, and channel integrations.
 
 ## Roadmap
 
@@ -56,7 +56,7 @@ Near-term protocol layers:
 - explicit trust registry and publisher identity,
 - richer scan findings and audit JSON.
 
-Later product layers:
+Later ecosystem layers:
 
 - Slack, Jira, GitHub, and email integrations,
 - MCP server for agent workflows,

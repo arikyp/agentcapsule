@@ -215,5 +215,5 @@ def _cryptography_ed25519():
         from cryptography.hazmat.primitives import serialization
         from cryptography.hazmat.primitives.asymmetric import ed25519
     except ImportError as exc:
-        raise CapsuleVerificationError("Ed25519 support requires installing lmcodec[signing]") from exc
+        raise CapsuleVerificationError("Ed25519 support requires installing agentcapsule[signing]") from exc
     return ed25519, serialization, InvalidSignature

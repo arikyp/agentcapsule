@@ -28,7 +28,7 @@ compact public-key signature mode that can support:
 - verification without sharing signing secrets,
 - key rotation and audit trails,
 - signatures that survive movement through text-native channels,
-- future enterprise policy rules such as trusted publishers or allowed key
+- future policy rules such as trusted publishers or allowed key
   fingerprints.
 
 ## Non-Goals
@@ -126,7 +126,7 @@ Registry key mode:
 - capsule includes key ID and fingerprint,
 - verifier resolves the public key through a local JSON registry,
 - policy decides whether the publisher, key, or fingerprint is allowed,
-- better for enterprise governance and audit.
+- better for governance and audit.
 
 Inline mode answers "did this key sign this capsule?" Registry mode answers
 "is this signing key trusted for this channel?"

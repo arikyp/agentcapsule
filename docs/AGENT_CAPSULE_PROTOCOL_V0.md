@@ -390,8 +390,6 @@ agentcapsule inspect capsule.txt --json
 agentcapsule verify capsule.txt --audit-json
 agentcapsule scan capsule.txt --json
 agentcapsule codecs --json
-sh scripts/demo_agent_capsule_governance.sh
-sh scripts/demo_agent_capsule_audit.sh
 ```
 
 The `--json` forms are intended for agent traces, CI checks, and governance

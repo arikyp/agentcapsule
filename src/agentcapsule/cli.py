@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 from agentcapsule.audit import audit_event, disposition_from_risk, disposition_from_status, scan_audit_event
-from agentcapsule.backends import known_codecs, ngram_v2_headers_from_model_path
+from agentcapsule.backends import known_codecs
 from agentcapsule.envelope import build_envelope, parse_envelope, render_envelope, verify_envelope
 from agentcapsule.errors import CapsuleError
 from agentcapsule.manifest import DEFAULT_CAPSULE_TYPE, DELIVERY_MODES, pack_path_with_manifest, unpack_payload
@@ -611,7 +611,7 @@ def _inspect_envelope(
         "created_by": envelope.headers["created_by"],
         "created_at": envelope.headers["created_at"],
         "payload_character_length": len(envelope.payload_text),
-        "codec_metadata": {key: value for key, value in envelope.headers.items() if key.startswith("lmcodec_")},
+        "codec_metadata": {key: value for key, value in envelope.headers.items() if key.startswith("codec_")},
         "risk_notes": _risk_notes(envelope),
     }
     try:
@@ -785,10 +785,6 @@ def _signature_status(envelope) -> str:
 
 
 def _backend_headers_from_args(args: argparse.Namespace) -> dict[str, str]:
-    if args.codec == "lmcodec-ngram-v2":
-        if not args.model:
-            raise CapsuleError("lmcodec-ngram-v2 requires --model")
-        return ngram_v2_headers_from_model_path(args.model)
     if args.model:
         raise CapsuleError(f"--model is not supported for codec: {args.codec}")
     return {}

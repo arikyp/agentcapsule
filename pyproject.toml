@@ -50,4 +50,4 @@ Issues = "https://github.com/arikyp/agentcapsule/issues"
 Documentation = "https://github.com/arikyp/agentcapsule/tree/main/docs"
 
 [tool.setuptools.packages.find]
-where = ["src", "legacy/lmcodec/src"]
+where = ["src"]
