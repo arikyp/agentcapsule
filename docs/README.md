@@ -4,6 +4,7 @@ Start here:
 
 - [QUICKSTART.md](QUICKSTART.md): fastest path to pack, inspect, verify, and unpack.
 - [INSTALL.md](INSTALL.md): local install and `pipx` install.
+- [INTEGRATIONS.md](INTEGRATIONS.md): framework integration patterns using the receiver kit.
 - [ROADMAP.md](ROADMAP.md): public roadmap and near-term priorities.
 - [AGENT_CAPSULE_PROTOCOL_V0.md](AGENT_CAPSULE_PROTOCOL_V0.md): protocol and CLI semantics.
 - [AGENT_CAPSULE_PRODUCT_BRIEF.md](AGENT_CAPSULE_PRODUCT_BRIEF.md): product framing and roadmap.

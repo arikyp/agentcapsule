@@ -171,6 +171,7 @@ This repository also includes a `legacy/lmcodec/` subtree for historical LMCodec
 - [docs/QUICKSTART.md](docs/QUICKSTART.md)
 - [docs/RECEIVER_GUIDE.md](docs/RECEIVER_GUIDE.md)
 - [docs/INSTALL.md](docs/INSTALL.md)
+- [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)
 - [docs/AGENT_CAPSULE_PROTOCOL_V0.md](docs/AGENT_CAPSULE_PROTOCOL_V0.md)
 - [docs/TESTING.md](docs/TESTING.md)
 - [docs/ROADMAP.md](docs/ROADMAP.md)
