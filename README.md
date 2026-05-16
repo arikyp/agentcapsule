@@ -80,9 +80,12 @@ Optional hardening:
 
 - HMAC-SHA256 signatures.
 - Ed25519 signatures and trust registry checks.
+- Signed trust snapshot import/sync into local registries (`trust import-snapshot`, `trust sync`).
 - AES-256-GCM payload encryption (`agentcapsule[signing]`, experimental optional extra).
 - Zstandard compression (`agentcapsule[compression]`, experimental optional extra).
 - Resumable reference fetching (`agentcapsule[fetch]`, experimental optional extra).
+
+For `trust sync`, snapshot key entries must include inline `public_key`; `public_key_path` entries are rejected.
 
 ## Current Limitations
 

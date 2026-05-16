@@ -5,10 +5,11 @@ import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
+from unittest.mock import patch
 
 from agentcapsule.cli import main
 from agentcapsule.envelope import build_envelope, render_envelope
-from agentcapsule.signing import load_private_key_file, sign_envelope_ed25519
+from agentcapsule.signing import encode_key_bytes, load_private_key_file, sign_envelope_ed25519
 from agentcapsule.trust import registry_entry_from_public_key_file
 
 
@@ -287,10 +288,300 @@ class AgentCapsuleRegistryTests(unittest.TestCase):
             self.assertEqual(stdout, "")
             self.assertIn("signature key is not trusted by local registry", stderr)
 
+    def test_verify_accepts_multiple_signature_registry_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            private_key, public_key = _generate_keys(root)
+            left_registry = _write_registry(root, public_key, key_id="other-publisher")
+            right_registry = _write_registry(root, public_key, key_id="publisher-prod", filename="registry-right.json")
+            policy = _write_policy(root, require_registry=True)
+            source = root / "payload.txt"
+            capsule = root / "capsule.txt"
+            source.write_text("multi-registry state", encoding="utf-8")
 
-def _generate_keys(root: Path) -> tuple[Path, Path]:
-    private_key = root / "publisher.key"
-    public_key = root / "publisher.pub"
+            self.assertEqual(
+                _run_cli(
+                    [
+                        "pack",
+                        str(source),
+                        "--out",
+                        str(capsule),
+                        "--sign-ed25519-key",
+                        str(private_key),
+                        "--signature-key-id",
+                        "publisher-prod",
+                        "--no-inline-public-key",
+                    ]
+                ),
+                0,
+            )
+
+            status, stdout, stderr = _capture_cli(
+                [
+                    "verify",
+                    str(capsule),
+                    "--policy",
+                    str(policy),
+                    "--signature-registry",
+                    str(left_registry),
+                    "--signature-registry",
+                    str(right_registry),
+                    "--json",
+                ]
+            )
+
+            self.assertEqual(status, 0)
+            self.assertEqual(stderr, "")
+            payload = json.loads(stdout)
+            self.assertEqual(payload["signature_trust"]["status"], "trusted")
+
+    def test_verify_applies_revoked_wins_across_merged_registries(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            private_key, public_key = _generate_keys(root)
+            trusted_registry = _write_registry(root, public_key, key_id="publisher-prod", filename="trusted-registry.json")
+            revoked_registry = _write_registry(
+                root,
+                public_key,
+                key_id="publisher-prod",
+                status="revoked",
+                filename="revoked-registry.json",
+            )
+            policy = _write_policy(root, require_registry=True)
+            source = root / "payload.txt"
+            capsule = root / "capsule.txt"
+            source.write_text("revoked merge state", encoding="utf-8")
+
+            self.assertEqual(
+                _run_cli(
+                    [
+                        "pack",
+                        str(source),
+                        "--out",
+                        str(capsule),
+                        "--sign-ed25519-key",
+                        str(private_key),
+                        "--signature-key-id",
+                        "publisher-prod",
+                        "--no-inline-public-key",
+                    ]
+                ),
+                0,
+            )
+
+            status, stdout, stderr = _capture_cli(
+                [
+                    "verify",
+                    str(capsule),
+                    "--policy",
+                    str(policy),
+                    "--signature-registry",
+                    str(trusted_registry),
+                    "--signature-registry",
+                    str(revoked_registry),
+                ]
+            )
+
+            self.assertNotEqual(status, 0)
+            self.assertEqual(stdout, "")
+            self.assertIn("signature key is revoked by local registry", stderr)
+
+    def test_trust_import_snapshot_writes_local_registry(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            root_private, root_public = _generate_keys(root, prefix="root")
+            publisher_private, publisher_public = _generate_keys(root, prefix="publisher")
+            snapshot_path = root / "snapshot.json"
+            local_registry = root / "local-registry.json"
+            policy = _write_policy(root, require_registry=True)
+            source = root / "payload.txt"
+            capsule = root / "capsule.txt"
+            source.write_text("snapshot import state", encoding="utf-8")
+
+            entry = registry_entry_from_public_key_file(
+                key_id="publisher-prod",
+                public_key_path=publisher_public,
+                publisher="Example Publisher",
+                status="trusted",
+            )
+            snapshot_payload = {
+                "registry_version": 1,
+                "issuer": "example-agent-trust",
+                "sequence": 42,
+                "created_at": "2026-05-10T00:00:00Z",
+                "expires_at": "2030-05-10T00:00:00Z",
+                "keys": [entry],
+            }
+            snapshot_path.write_text(json.dumps(_signed_snapshot(snapshot_payload, root_private, key_id="root-2026")), encoding="utf-8")
+
+            status, stdout, stderr = _capture_cli(
+                [
+                    "trust",
+                    "import-snapshot",
+                    "--snapshot",
+                    str(snapshot_path),
+                    "--trusted-root-key",
+                    str(root_public),
+                    "--issuer",
+                    "example-agent-trust",
+                    "--out",
+                    str(local_registry),
+                    "--json",
+                ]
+            )
+            self.assertEqual(status, 0)
+            self.assertEqual(stderr, "")
+            payload = json.loads(stdout)
+            self.assertEqual(payload["operation"], "trust_snapshot_import")
+            self.assertEqual(payload["issuer"], "example-agent-trust")
+            self.assertTrue(local_registry.exists())
+
+            self.assertEqual(
+                _run_cli(
+                    [
+                        "pack",
+                        str(source),
+                        "--out",
+                        str(capsule),
+                        "--sign-ed25519-key",
+                        str(publisher_private),
+                        "--signature-key-id",
+                        "publisher-prod",
+                        "--no-inline-public-key",
+                    ]
+                ),
+                0,
+            )
+            verify_status, verify_stdout, verify_stderr = _capture_cli(
+                ["verify", str(capsule), "--policy", str(policy), "--signature-registry", str(local_registry), "--json"]
+            )
+            self.assertEqual(verify_status, 0)
+            self.assertEqual(verify_stderr, "")
+            verify_payload = json.loads(verify_stdout)
+            self.assertEqual(verify_payload["signature_trust"]["status"], "trusted")
+
+    def test_trust_sync_snapshot_fetches_and_writes_local_registry(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            root_private, root_public = _generate_keys(root, prefix="root")
+            publisher_private, publisher_public = _generate_keys(root, prefix="publisher")
+            local_registry = root / "synced-registry.json"
+            policy = _write_policy(root, require_registry=True)
+            source = root / "payload.txt"
+            capsule = root / "capsule.txt"
+            source.write_text("snapshot sync state", encoding="utf-8")
+
+            entry = registry_entry_from_public_key_file(
+                key_id="publisher-sync",
+                public_key_path=publisher_public,
+                publisher="Example Publisher",
+                status="trusted",
+            )
+            snapshot_payload = {
+                "registry_version": 1,
+                "issuer": "sync-issuer",
+                "sequence": 7,
+                "created_at": "2026-05-10T00:00:00Z",
+                "expires_at": "2030-05-10T00:00:00Z",
+                "keys": [entry],
+            }
+            snapshot_bytes = json.dumps(_signed_snapshot(snapshot_payload, root_private, key_id="root-2026")).encode("utf-8")
+
+            with patch("agentcapsule.fetcher.fetch_capsule", return_value=snapshot_bytes):
+                status, stdout, stderr = _capture_cli(
+                    [
+                        "trust",
+                        "sync",
+                        "--uri",
+                        "https://trust.example/snapshot.json",
+                        "--trusted-root-key",
+                        str(root_public),
+                        "--issuer",
+                        "sync-issuer",
+                        "--out",
+                        str(local_registry),
+                        "--json",
+                    ]
+                )
+
+            self.assertEqual(status, 0)
+            self.assertEqual(stderr, "")
+            payload = json.loads(stdout)
+            self.assertEqual(payload["operation"], "trust_snapshot_sync")
+            self.assertEqual(payload["issuer"], "sync-issuer")
+            self.assertTrue(local_registry.exists())
+
+            self.assertEqual(
+                _run_cli(
+                    [
+                        "pack",
+                        str(source),
+                        "--out",
+                        str(capsule),
+                        "--sign-ed25519-key",
+                        str(publisher_private),
+                        "--signature-key-id",
+                        "publisher-sync",
+                        "--no-inline-public-key",
+                    ]
+                ),
+                0,
+            )
+            verify_status, verify_stdout, verify_stderr = _capture_cli(
+                ["verify", str(capsule), "--policy", str(policy), "--signature-registry", str(local_registry), "--json"]
+            )
+            self.assertEqual(verify_status, 0)
+            self.assertEqual(verify_stderr, "")
+            verify_payload = json.loads(verify_stdout)
+            self.assertEqual(verify_payload["signature_trust"]["status"], "trusted")
+
+    def test_trust_sync_rejects_snapshot_with_public_key_path_entries(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            root_private, root_public = _generate_keys(root, prefix="root")
+            _publisher_private, publisher_public = _generate_keys(root, prefix="publisher")
+            local_registry = root / "synced-registry.json"
+
+            entry = {
+                "key_id": "publisher-sync",
+                "fingerprint": "0" * 64,
+                "public_key_path": publisher_public.name,
+                "status": "trusted",
+            }
+            snapshot_payload = {
+                "registry_version": 1,
+                "issuer": "sync-issuer",
+                "sequence": 8,
+                "created_at": "2026-05-10T00:00:00Z",
+                "expires_at": "2030-05-10T00:00:00Z",
+                "keys": [entry],
+            }
+            snapshot_bytes = json.dumps(_signed_snapshot(snapshot_payload, root_private, key_id="root-2026")).encode("utf-8")
+
+            with patch("agentcapsule.fetcher.fetch_capsule", return_value=snapshot_bytes):
+                status, stdout, stderr = _capture_cli(
+                    [
+                        "trust",
+                        "sync",
+                        "--uri",
+                        "https://trust.example/snapshot.json",
+                        "--trusted-root-key",
+                        str(root_public),
+                        "--issuer",
+                        "sync-issuer",
+                        "--out",
+                        str(local_registry),
+                    ]
+                )
+
+            self.assertNotEqual(status, 0)
+            self.assertEqual(stdout, "")
+            self.assertIn("public_key_path is not allowed", stderr)
+
+
+def _generate_keys(root: Path, *, prefix: str = "publisher") -> tuple[Path, Path]:
+    private_key = root / f"{prefix}.key"
+    public_key = root / f"{prefix}.pub"
     assert _run_cli(["keys", "generate", "--private-key", str(private_key), "--public-key", str(public_key)]) == 0
     return private_key, public_key
 
@@ -300,11 +591,12 @@ def _write_registry(
     public_key: Path,
     *,
     key_id: str,
+    filename: str = "registry.json",
     publisher: str | None = None,
     status: str = "trusted",
     expires_at: str | None = None,
 ) -> Path:
-    registry = root / "registry.json"
+    registry = root / filename
     entry = registry_entry_from_public_key_file(
         key_id=key_id,
         public_key_path=public_key,
@@ -322,6 +614,21 @@ def _write_registry(
         encoding="utf-8",
     )
     return registry
+
+
+def _signed_snapshot(payload: dict[str, object], private_key_path: Path, *, key_id: str) -> dict[str, object]:
+    from cryptography.hazmat.primitives.asymmetric import ed25519
+
+    signing_payload = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    private_key = ed25519.Ed25519PrivateKey.from_private_bytes(load_private_key_file(private_key_path))
+    signature = encode_key_bytes(private_key.sign(signing_payload))
+    signed = dict(payload)
+    signed["signature"] = {
+        "mode": "ed25519",
+        "key_id": key_id,
+        "signature": signature,
+    }
+    return signed
 
 
 def _write_policy(root: Path, *, require_registry: bool, trusted_ids: list[str] | None = None) -> Path:

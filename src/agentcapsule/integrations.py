@@ -66,7 +66,7 @@ def ingest_for_framework(
     key_env: str | None = None,
     encryption_key_env: str | None = None,
     ed25519_public_key: str | Path | None = None,
-    signature_registry: SignatureRegistry | str | Path | None = None,
+    signature_registry: SignatureRegistry | str | Path | Sequence[str | Path] | None = None,
     fetch_references: bool = True,
     resumable_fetch: bool = False,
     include_scan_report: bool = True,

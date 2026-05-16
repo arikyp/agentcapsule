@@ -39,7 +39,7 @@ from agentcapsule.signing import (
     verify_ed25519_signature,
     verify_signature,
 )
-from agentcapsule.trust import SignatureRegistry, SignatureTrustResult, load_signature_registry
+from agentcapsule.trust import SignatureRegistry, SignatureTrustResult, load_signature_registries, load_signature_registry
 
 
 @dataclass(frozen=True)
@@ -203,7 +203,7 @@ def verify_capsule(
     key_env: str | None = None,
     encryption_key_env: str | None = None,
     ed25519_public_key: str | Path | None = None,
-    signature_registry: SignatureRegistry | str | Path | None = None,
+    signature_registry: SignatureRegistry | str | Path | Sequence[str | Path] | None = None,
 ) -> VerificationResult:
     envelope = parse_envelope(_capsule_text(capsule))
     policy_obj = _resolve_policy(policy)
@@ -246,7 +246,7 @@ def unpack_capsule(
     key_env: str | None = None,
     encryption_key_env: str | None = None,
     ed25519_public_key: str | Path | None = None,
-    signature_registry: SignatureRegistry | str | Path | None = None,
+    signature_registry: SignatureRegistry | str | Path | Sequence[str | Path] | None = None,
 ) -> UnpackResult:
     verification = verify_capsule(
         capsule,
@@ -273,7 +273,7 @@ def scan_text(
     text: str,
     *,
     policy: CapsulePolicy | str | Path | None = None,
-    signature_registry: SignatureRegistry | str | Path | None = None,
+    signature_registry: SignatureRegistry | str | Path | Sequence[str | Path] | None = None,
     encryption_key_env: str | None = None,
 ):
     encryption_key = _encryption_key_from_env_optional(encryption_key_env)
@@ -293,7 +293,7 @@ def ingest_messages(
     key_env: str | None = None,
     encryption_key_env: str | None = None,
     ed25519_public_key: str | Path | None = None,
-    signature_registry: SignatureRegistry | str | Path | None = None,
+    signature_registry: SignatureRegistry | str | Path | Sequence[str | Path] | None = None,
     fetch_references: bool = True,
     resumable_fetch: bool = False,
     include_scan_report: bool = True,
@@ -505,12 +505,14 @@ def _resolve_policy(policy: CapsulePolicy | str | Path | None) -> CapsulePolicy:
 
 
 def _resolve_signature_registry(
-    signature_registry: SignatureRegistry | str | Path | None,
+    signature_registry: SignatureRegistry | str | Path | Sequence[str | Path] | None,
 ) -> SignatureRegistry | None:
     if signature_registry is None:
         return None
     if isinstance(signature_registry, SignatureRegistry):
         return signature_registry
+    if isinstance(signature_registry, Sequence) and not isinstance(signature_registry, (str, Path)):
+        return load_signature_registries([Path(path) for path in signature_registry])
     return load_signature_registry(Path(signature_registry))
 
 

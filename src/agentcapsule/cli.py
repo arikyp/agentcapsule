@@ -48,8 +48,12 @@ from agentcapsule.signing import (
 from agentcapsule.trust import (
     SignatureRegistry,
     SignatureTrustResult,
+    VerifiedRegistrySnapshot,
+    load_signature_registries,
     load_signature_registry,
     registry_entry_from_public_key_file,
+    verified_snapshot_to_registry_document,
+    verify_signed_registry_snapshot,
 )
 
 
@@ -99,7 +103,12 @@ def main(argv: list[str] | None = None) -> int:
     inspect_parser.add_argument("--key-env", help="environment variable containing HMAC-SHA256 verification key")
     inspect_parser.add_argument("--encryption-key-env", help="environment variable containing decryption key")
     inspect_parser.add_argument("--ed25519-public-key", help="base64 raw Ed25519 public key file")
-    inspect_parser.add_argument("--signature-registry", help="local JSON signature trust registry")
+    inspect_parser.add_argument(
+        "--signature-registry",
+        action="append",
+        default=[],
+        help="local JSON signature trust registry (repeatable)",
+    )
     inspect_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
     inspect_parser.add_argument("--audit-json", action="store_true", help="emit structured audit event JSON")
 
@@ -109,7 +118,12 @@ def main(argv: list[str] | None = None) -> int:
     verify_parser.add_argument("--key-env", help="environment variable containing HMAC-SHA256 verification key")
     verify_parser.add_argument("--encryption-key-env", help="environment variable containing decryption key")
     verify_parser.add_argument("--ed25519-public-key", help="base64 raw Ed25519 public key file")
-    verify_parser.add_argument("--signature-registry", help="local JSON signature trust registry")
+    verify_parser.add_argument(
+        "--signature-registry",
+        action="append",
+        default=[],
+        help="local JSON signature trust registry (repeatable)",
+    )
     verify_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
     verify_parser.add_argument("--audit-json", action="store_true", help="emit structured audit event JSON")
 
@@ -120,13 +134,23 @@ def main(argv: list[str] | None = None) -> int:
     unpack_parser.add_argument("--key-env", help="environment variable containing HMAC-SHA256 verification key")
     unpack_parser.add_argument("--encryption-key-env", help="environment variable containing decryption key")
     unpack_parser.add_argument("--ed25519-public-key", help="base64 raw Ed25519 public key file")
-    unpack_parser.add_argument("--signature-registry", help="local JSON signature trust registry")
+    unpack_parser.add_argument(
+        "--signature-registry",
+        action="append",
+        default=[],
+        help="local JSON signature trust registry (repeatable)",
+    )
     unpack_parser.add_argument("--audit-json", action="store_true", help="emit structured audit event JSON")
 
     scan_parser = subparsers.add_parser("scan", help="scan a text file for capsules and dense payload risks")
     scan_parser.add_argument("text_file")
     scan_parser.add_argument("--policy", help="JSON policy file")
-    scan_parser.add_argument("--signature-registry", help="local JSON signature trust registry")
+    scan_parser.add_argument(
+        "--signature-registry",
+        action="append",
+        default=[],
+        help="local JSON signature trust registry (repeatable)",
+    )
     scan_parser.add_argument("--encryption-key-env", help="environment variable containing decryption key")
     scan_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
     scan_parser.add_argument("--audit-json", action="store_true", help="emit structured audit event JSON")
@@ -139,7 +163,12 @@ def main(argv: list[str] | None = None) -> int:
     ingest_parser.add_argument("--key-env", help="environment variable containing HMAC-SHA256 verification key")
     ingest_parser.add_argument("--encryption-key-env", help="environment variable containing decryption key")
     ingest_parser.add_argument("--ed25519-public-key", help="base64 raw Ed25519 public key file")
-    ingest_parser.add_argument("--signature-registry", help="local JSON signature trust registry")
+    ingest_parser.add_argument(
+        "--signature-registry",
+        action="append",
+        default=[],
+        help="local JSON signature trust registry (repeatable)",
+    )
     ingest_parser.add_argument("--no-fetch-references", action="store_true", help="detect references but do not fetch")
     ingest_parser.add_argument("--resumable", action="store_true", help="attempt to resume partial reference downloads")
     ingest_parser.add_argument(
@@ -171,6 +200,40 @@ def main(argv: list[str] | None = None) -> int:
     fetch_parser.add_argument("--out", required=True, help="output path for the fetched capsule")
     fetch_parser.add_argument("--sha256", help="expected capsule SHA256")
     fetch_parser.add_argument("--resumable", action="store_true", help="attempt to resume a partial download")
+
+    trust_parser = subparsers.add_parser("trust", help="manage local trust registry snapshots")
+    trust_subparsers = trust_parser.add_subparsers(dest="trust_command", required=True)
+    trust_import = trust_subparsers.add_parser(
+        "import-snapshot",
+        help="verify a signed registry snapshot and write a local merged registry file",
+    )
+    trust_import.add_argument("--snapshot", required=True, help="signed registry snapshot JSON file")
+    trust_import.add_argument(
+        "--trusted-root-key",
+        action="append",
+        default=[],
+        required=True,
+        help="base64 raw Ed25519 public key file allowed to sign snapshots (repeatable)",
+    )
+    trust_import.add_argument("--issuer", help="expected issuer value in the snapshot")
+    trust_import.add_argument("--out", required=True, help="output path for local registry JSON")
+    trust_import.add_argument("--json", action="store_true", help="emit machine-readable JSON")
+
+    trust_sync = trust_subparsers.add_parser(
+        "sync",
+        help="fetch, verify, and cache a signed registry snapshot to a local registry file",
+    )
+    trust_sync.add_argument("--uri", required=True, help="snapshot URI to fetch")
+    trust_sync.add_argument(
+        "--trusted-root-key",
+        action="append",
+        default=[],
+        required=True,
+        help="base64 raw Ed25519 public key file allowed to sign snapshots (repeatable)",
+    )
+    trust_sync.add_argument("--issuer", help="expected issuer value in the snapshot")
+    trust_sync.add_argument("--out", required=True, help="output path for local registry JSON")
+    trust_sync.add_argument("--json", action="store_true", help="emit machine-readable JSON")
 
     keys_parser = subparsers.add_parser("keys", help="manage local Agent Capsule signing keys")
     key_subparsers = keys_parser.add_subparsers(dest="key_command", required=True)
@@ -492,6 +555,65 @@ def main(argv: list[str] | None = None) -> int:
             fetch_capsule(uri, expected_sha256=expected_sha, save_path=Path(args.out), resumable=args.resumable)
             print(f"capsule fetched: {args.out}")
             return 0
+        if args.command == "trust":
+            trusted_root_keys = _trusted_root_public_keys_from_args(args)
+            if args.trust_command == "import-snapshot":
+                snapshot_path = Path(args.snapshot)
+                try:
+                    snapshot_data = json.loads(snapshot_path.read_text(encoding="utf-8"))
+                except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                    raise CapsuleError(f"invalid registry snapshot JSON: {exc}") from exc
+                verified = verify_signed_registry_snapshot(
+                    snapshot_data,
+                    trusted_root_public_keys=trusted_root_keys,
+                    base_dir=snapshot_path.parent,
+                    expected_issuer=args.issuer,
+                )
+                _write_registry_from_snapshot(verified=verified, out_path=Path(args.out))
+                payload = _trust_snapshot_report(
+                    operation="trust_snapshot_import",
+                    verified=verified,
+                    out_path=Path(args.out),
+                    source=args.snapshot,
+                )
+                if args.json:
+                    _print_json(payload)
+                else:
+                    print(f"registry updated: {args.out}")
+                    print(f"issuer: {verified.issuer}")
+                    print(f"sequence: {verified.sequence}")
+                    print(f"keys: {len(verified.registry.keys)}")
+                return 0
+            if args.trust_command == "sync":
+                from agentcapsule.fetcher import fetch_capsule
+
+                snapshot_bytes = fetch_capsule(args.uri)
+                try:
+                    snapshot_data = json.loads(snapshot_bytes.decode("utf-8"))
+                except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                    raise CapsuleError(f"invalid registry snapshot JSON: {exc}") from exc
+                _reject_snapshot_public_key_paths(snapshot_data)
+                verified = verify_signed_registry_snapshot(
+                    snapshot_data,
+                    trusted_root_public_keys=trusted_root_keys,
+                    base_dir=Path("."),
+                    expected_issuer=args.issuer,
+                )
+                _write_registry_from_snapshot(verified=verified, out_path=Path(args.out))
+                payload = _trust_snapshot_report(
+                    operation="trust_snapshot_sync",
+                    verified=verified,
+                    out_path=Path(args.out),
+                    source=args.uri,
+                )
+                if args.json:
+                    _print_json(payload)
+                else:
+                    print(f"registry synced: {args.out}")
+                    print(f"issuer: {verified.issuer}")
+                    print(f"sequence: {verified.sequence}")
+                    print(f"keys: {len(verified.registry.keys)}")
+                return 0
         if args.command == "keys":
             if args.key_command == "generate":
                 private_path = Path(args.private_key)
@@ -595,10 +717,59 @@ def _error_audit_event(args: argparse.Namespace, error: str) -> dict[str, object
 
 
 def _signature_registry_from_args(args: argparse.Namespace) -> SignatureRegistry | None:
-    registry_path = getattr(args, "signature_registry", None)
-    if registry_path:
-        return load_signature_registry(Path(registry_path))
+    registry_paths = getattr(args, "signature_registry", None)
+    if isinstance(registry_paths, str):
+        return load_signature_registry(Path(registry_paths))
+    if registry_paths:
+        return load_signature_registries([Path(path) for path in registry_paths])
     return None
+
+
+def _trusted_root_public_keys_from_args(args: argparse.Namespace) -> list[bytes]:
+    key_paths = getattr(args, "trusted_root_key", None)
+    if not key_paths:
+        raise CapsuleError("at least one --trusted-root-key is required")
+    return [load_public_key_file(Path(path)) for path in key_paths]
+
+
+def _write_registry_from_snapshot(*, verified: VerifiedRegistrySnapshot, out_path: Path) -> None:
+    payload = verified_snapshot_to_registry_document(verified)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":")), encoding="utf-8", newline="\n")
+
+
+def _trust_snapshot_report(
+    *,
+    operation: str,
+    verified: VerifiedRegistrySnapshot,
+    out_path: Path,
+    source: str,
+) -> dict[str, object]:
+    return {
+        "operation": operation,
+        "source": source,
+        "registry_path": str(out_path),
+        "issuer": verified.issuer,
+        "sequence": verified.sequence,
+        "registry_version": verified.registry_version,
+        "created_at": verified.created_at,
+        "expires_at": verified.expires_at,
+        "signature_key_id": verified.signature_key_id,
+        "keys_count": len(verified.registry.keys),
+    }
+
+
+def _reject_snapshot_public_key_paths(snapshot_data: object) -> None:
+    if not isinstance(snapshot_data, dict):
+        return
+    keys = snapshot_data.get("keys")
+    if not isinstance(keys, list):
+        return
+    for entry in keys:
+        if isinstance(entry, dict) and "public_key_path" in entry:
+            raise CapsuleError(
+                "trust sync snapshots must use inline public_key entries; public_key_path is not allowed"
+            )
 
 
 def _scan_report(result, policy: CapsulePolicy) -> dict[str, object]:
