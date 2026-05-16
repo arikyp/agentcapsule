@@ -5,6 +5,12 @@ from agentcapsule.scanner import scan_text
 
 
 class AgentCapsuleScanTests(unittest.TestCase):
+    def _require_cryptography(self) -> None:
+        try:
+            from cryptography.hazmat.primitives.ciphers.aead import AESGCM  # noqa: F401
+        except ImportError:
+            self.skipTest("cryptography not installed")
+
     def test_scan_detects_explicit_capsule(self) -> None:
         text = "handoff follows\n" + render_envelope(build_envelope(b"payload"))
         result = scan_text(text)
@@ -48,6 +54,7 @@ class AgentCapsuleScanTests(unittest.TestCase):
         self.assertEqual(finding["line"], 2)
 
     def test_scan_encrypted_capsule_without_key_reports_review(self) -> None:
+        self._require_cryptography()
         key = b"k" * 32
         text = render_envelope(build_envelope(b"payload", encryption_key=key))
 
@@ -59,6 +66,7 @@ class AgentCapsuleScanTests(unittest.TestCase):
         self.assertEqual(result.findings[0].finding_type, "capsule_encrypted_no_key")
 
     def test_scan_encrypted_capsule_with_key_verifies_successfully(self) -> None:
+        self._require_cryptography()
         key = b"k" * 32
         text = render_envelope(build_envelope(b"payload", encryption_key=key))
 

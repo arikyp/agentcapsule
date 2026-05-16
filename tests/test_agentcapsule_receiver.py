@@ -13,6 +13,12 @@ from agentcapsule.receiver import ingest_messages, verify_capsule
 
 
 class AgentCapsuleReceiverTests(unittest.TestCase):
+    def _require_cryptography(self) -> None:
+        try:
+            from cryptography.hazmat.primitives.ciphers.aead import AESGCM  # noqa: F401
+        except ImportError:
+            self.skipTest("cryptography not installed")
+
     def test_ingest_messages_handles_inline_reference_and_malformed_blocks(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -154,6 +160,7 @@ class AgentCapsuleReceiverTests(unittest.TestCase):
                 verify_capsule(capsule)
 
     def test_ingest_with_encrypted_capsule_and_decryption_key_keeps_scan_consistent(self) -> None:
+        self._require_cryptography()
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             out = root / "sandbox"

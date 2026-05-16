@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import os
 
 from agentcapsule.errors import CapsuleVerificationError
@@ -40,8 +41,26 @@ def decompress_payload(payload: bytes, mode: str) -> bytes:
         dctx = zstd.ZstdDecompressor()
         max_output_size = _zstd_max_output_size()
         try:
-            return dctx.decompress(payload, max_output_size=max_output_size)
+            reader = dctx.stream_reader(io.BytesIO(payload))
+            chunks: list[bytes] = []
+            total = 0
+            with reader:
+                while True:
+                    remaining = max_output_size - total
+                    read_size = min(1024 * 1024, max(remaining + 1, 1))
+                    chunk = reader.read(read_size)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if total > max_output_size:
+                        raise CapsuleVerificationError(
+                            f"zstd decompression failed or exceeded max output size ({max_output_size} bytes)"
+                        )
+                    chunks.append(chunk)
+            return b"".join(chunks)
         except Exception as exc:
+            if isinstance(exc, CapsuleVerificationError):
+                raise
             raise CapsuleVerificationError(
                 f"zstd decompression failed or exceeded max output size ({max_output_size} bytes)"
             ) from exc
