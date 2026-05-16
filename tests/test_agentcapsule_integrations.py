@@ -14,6 +14,22 @@ from agentcapsule.receiver import ingest_messages
 
 
 class AgentCapsuleIntegrationsTests(unittest.TestCase):
+    _STABLE_FRAMEWORK_FIELDS = {
+        "report_type",
+        "schema_version",
+        "disposition",
+        "accepted_capsules_count",
+        "rejected_capsules_count",
+        "rejected_reasons_by_type",
+        "unpacked_files_count",
+        "unpacked_files",
+        "inline_capsules",
+        "references",
+        "malformed_blocks",
+        "effective_policy",
+        "scan_report",
+    }
+
     def test_ingest_for_framework_returns_stable_contract(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -27,24 +43,7 @@ class AgentCapsuleIntegrationsTests(unittest.TestCase):
             self.assertEqual(result.schema_version, FRAMEWORK_SCHEMA_VERSION)
             self.assertEqual(payload["report_type"], FRAMEWORK_REPORT_TYPE)
             self.assertEqual(payload["schema_version"], FRAMEWORK_SCHEMA_VERSION)
-            self.assertEqual(
-                set(payload),
-                {
-                    "report_type",
-                    "schema_version",
-                    "disposition",
-                    "accepted_capsules_count",
-                    "rejected_capsules_count",
-                    "rejected_reasons_by_type",
-                    "unpacked_files_count",
-                    "unpacked_files",
-                    "inline_capsules",
-                    "references",
-                    "malformed_blocks",
-                    "effective_policy",
-                    "scan_report",
-                },
-            )
+            self.assertEqual(set(payload), self._STABLE_FRAMEWORK_FIELDS)
             self.assertEqual(payload["accepted_capsules_count"], 1)
             self.assertEqual(payload["rejected_capsules_count"], 0)
             self.assertEqual(payload["unpacked_files_count"], 1)
@@ -74,6 +73,20 @@ class AgentCapsuleIntegrationsTests(unittest.TestCase):
             self.assertEqual(framework.unpacked_files_count, receiver["unpacked_files_count"])
             self.assertEqual(framework.malformed_blocks, receiver["malformed_blocks"])
             self.assertEqual(framework.blocked, receiver["disposition"] == "block")
+
+    def test_ingest_for_framework_preserves_stable_shape_when_blocked(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            out_dir = root / "sandbox"
+            malformed = "\n".join(["sender: handoff", "-----BEGIN AGENT CAPSULE-----", "truncated"])
+
+            result = ingest_for_framework(messages=[{"content": malformed}], out_dir=out_dir)
+            payload = result.to_dict()
+
+            self.assertTrue(result.blocked)
+            self.assertEqual(payload["disposition"], "block")
+            self.assertEqual(payload["rejected_reasons_by_type"], {"MALFORMED_CAPSULE_BLOCK": 1})
+            self.assertEqual(set(payload), self._STABLE_FRAMEWORK_FIELDS)
 
     def test_framework_result_helpers(self) -> None:
         result = FrameworkIngestResult(
