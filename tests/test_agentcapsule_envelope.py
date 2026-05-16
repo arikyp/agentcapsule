@@ -116,6 +116,24 @@ class AgentCapsuleEnvelopeTests(unittest.TestCase):
         with self.assertRaisesRegex(CapsuleVerificationError, "decryption failed"):
             verify_envelope(tampered, encryption_key=key)
 
+    def test_encrypted_capsule_correct_key_succeeds(self) -> None:
+        self._require_cryptography()
+        key = b"k" * 32
+        envelope = build_envelope(b"payload", encryption_key=key)
+        parsed = parse_envelope(render_envelope(envelope))
+
+        self.assertEqual(verify_envelope(parsed, encryption_key=key), b"payload")
+
+    def test_encrypted_capsule_wrong_key_fails(self) -> None:
+        self._require_cryptography()
+        key = b"k" * 32
+        wrong_key = b"w" * 32
+        envelope = build_envelope(b"payload", encryption_key=key)
+        parsed = parse_envelope(render_envelope(envelope))
+
+        with self.assertRaisesRegex(CapsuleVerificationError, "decryption failed"):
+            verify_envelope(parsed, encryption_key=wrong_key)
+
     def test_encrypted_capsule_binds_extra_headers_with_aad(self) -> None:
         self._require_cryptography()
         key = b"k" * 32
