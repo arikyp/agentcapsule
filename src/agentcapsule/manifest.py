@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from agentcapsule.errors import CapsuleParseError, CapsuleUnpackError
+from agentcapsule.errors import CapsuleParseError, CapsuleUnpackError, CapsuleVerificationError
 
 BUNDLE_CONTENT_TYPE = "application/vnd.agent.bundle+json"
 SINGLE_FILE_CONTENT_TYPE = "application/octet-stream"
@@ -67,12 +67,21 @@ def pack_directory_with_manifest(root: Path) -> tuple[bytes, list[dict[str, obje
     files = []
     manifest_files = []
     for current, dirnames, filenames in os.walk(root):
-        dirnames[:] = sorted(dirname for dirname in dirnames if dirname != "__pycache__")
+        safe_dirnames = []
+        for dirname in sorted(dirnames):
+            if dirname == "__pycache__":
+                continue
+            dir_path = Path(current) / dirname
+            if dir_path.is_symlink():
+                rel = dir_path.relative_to(root).as_posix()
+                raise CapsuleUnpackError(f"symlink directories are not allowed in bundles: {rel}")
+            safe_dirnames.append(dirname)
+        dirnames[:] = safe_dirnames
         for filename in sorted(filenames):
             file_path = Path(current) / filename
             rel = file_path.relative_to(root).as_posix()
-            
-            # Read only for hashing and manifest
+            if file_path.is_symlink():
+                raise CapsuleUnpackError(f"symlink files are not allowed in bundles: {rel}")
             data = file_path.read_bytes()
             sha256 = hashlib.sha256(data).hexdigest()
             manifest_files.append(
@@ -216,6 +225,118 @@ def _validate_manifest_file(entry: Any) -> None:
         raise CapsuleParseError("capsule manifest file sha256 is invalid") from exc
     if not isinstance(entry["bytes"], int) or entry["bytes"] < 0:
         raise CapsuleParseError("capsule manifest file bytes must be a non-negative integer")
+
+
+def verify_manifest_matches_payload(
+    *,
+    manifest: dict[str, object] | None,
+    payload: bytes,
+    content_type: str,
+    filename: str | None = None,
+) -> None:
+    """Verify that capsule manifest file metadata matches decoded payload content."""
+    if manifest is None:
+        return
+    files_raw = manifest.get("files")
+    if not isinstance(files_raw, list):
+        raise CapsuleVerificationError("capsule manifest files must be a list")
+    manifest_index = _manifest_file_index(files_raw)
+    if content_type == SINGLE_FILE_CONTENT_TYPE:
+        _verify_single_payload_manifest(manifest_index, payload=payload, filename=filename)
+        return
+    if content_type == BUNDLE_CONTENT_TYPE:
+        _verify_bundle_payload_manifest(manifest_index, payload=payload)
+        return
+    raise CapsuleVerificationError(f"unsupported content type for manifest verification: {content_type}")
+
+
+def _manifest_file_index(files_raw: list[object]) -> dict[str, tuple[int, str]]:
+    manifest_index: dict[str, tuple[int, str]] = {}
+    for entry in files_raw:
+        _validate_manifest_file(entry)
+        assert isinstance(entry, dict)  # for typing
+        path = str(entry["path"])
+        if path in manifest_index:
+            raise CapsuleVerificationError(f"duplicate path in capsule manifest files: {path}")
+        manifest_index[path] = (int(entry["bytes"]), str(entry["sha256"]).lower())
+    return manifest_index
+
+
+def _verify_single_payload_manifest(
+    manifest_index: dict[str, tuple[int, str]],
+    *,
+    payload: bytes,
+    filename: str | None,
+) -> None:
+    if len(manifest_index) != 1:
+        raise CapsuleVerificationError("single-file payload requires exactly one manifest file entry")
+    expected_name = _safe_filename(filename or "payload.bin")
+    path, (expected_bytes, expected_sha) = next(iter(manifest_index.items()))
+    if path != expected_name:
+        raise CapsuleVerificationError("capsule manifest file path does not match single-file payload name")
+    if expected_bytes != len(payload):
+        raise CapsuleVerificationError("capsule manifest bytes do not match single-file payload")
+    actual_sha = hashlib.sha256(payload).hexdigest()
+    if expected_sha != actual_sha:
+        raise CapsuleVerificationError("capsule manifest SHA256 does not match single-file payload")
+
+
+def _verify_bundle_payload_manifest(manifest_index: dict[str, tuple[int, str]], *, payload: bytes) -> None:
+    bundle_index = _bundle_payload_index(payload)
+    manifest_paths = set(manifest_index)
+    bundle_paths = set(bundle_index)
+    if manifest_paths != bundle_paths:
+        missing = sorted(bundle_paths - manifest_paths)
+        extra = sorted(manifest_paths - bundle_paths)
+        details = []
+        if missing:
+            details.append(f"missing paths: {', '.join(missing)}")
+        if extra:
+            details.append(f"unexpected paths: {', '.join(extra)}")
+        raise CapsuleVerificationError("capsule manifest files do not match bundle payload files" + (f" ({'; '.join(details)})" if details else ""))
+    for path, (actual_bytes, actual_sha) in bundle_index.items():
+        expected_bytes, expected_sha = manifest_index[path]
+        if expected_bytes != actual_bytes:
+            raise CapsuleVerificationError(f"capsule manifest bytes do not match bundle payload: {path}")
+        if expected_sha != actual_sha:
+            raise CapsuleVerificationError(f"capsule manifest SHA256 does not match bundle payload: {path}")
+
+
+def _bundle_payload_index(payload: bytes) -> dict[str, tuple[int, str]]:
+    try:
+        bundle = json.loads(payload.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise CapsuleVerificationError("invalid bundle JSON") from exc
+    if bundle.get("format") != BUNDLE_FORMAT:
+        raise CapsuleVerificationError("unsupported bundle format")
+    files = bundle.get("files")
+    if not isinstance(files, list):
+        raise CapsuleVerificationError("invalid bundle files list")
+    index: dict[str, tuple[int, str]] = {}
+    for entry in files:
+        if not isinstance(entry, dict):
+            raise CapsuleVerificationError("invalid bundle file entry")
+        rel_path = entry.get("path")
+        expected_size = entry.get("size")
+        expected_sha = entry.get("sha256")
+        encoded = entry.get("content_base64")
+        if not isinstance(rel_path, str) or not isinstance(expected_size, int):
+            raise CapsuleVerificationError("invalid bundle file metadata")
+        if not isinstance(expected_sha, str) or not isinstance(encoded, str):
+            raise CapsuleVerificationError("invalid bundle file metadata")
+        if rel_path in index:
+            raise CapsuleVerificationError(f"duplicate path in bundle payload: {rel_path}")
+        try:
+            data = base64.b64decode(encoded.encode("ascii"), validate=True)
+        except Exception as exc:
+            raise CapsuleVerificationError(f"invalid bundle file content encoding: {rel_path}") from exc
+        if len(data) != expected_size:
+            raise CapsuleVerificationError(f"bundle size mismatch: {rel_path}")
+        actual_sha = hashlib.sha256(data).hexdigest()
+        if actual_sha != expected_sha:
+            raise CapsuleVerificationError(f"bundle SHA256 mismatch: {rel_path}")
+        index[rel_path] = (len(data), actual_sha)
+    return index
 
 
 def unpack_payload(payload: bytes, content_type: str, out_dir: Path, *, filename: str | None = None) -> list[Path]:

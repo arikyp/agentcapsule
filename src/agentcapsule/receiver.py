@@ -18,7 +18,13 @@ from agentcapsule.errors import (
     CapsuleVerificationError,
 )
 from agentcapsule.fetcher import fetch_capsule
-from agentcapsule.manifest import DEFAULT_CAPSULE_TYPE, DELIVERY_MODES, pack_path_with_manifest, unpack_payload
+from agentcapsule.manifest import (
+    DEFAULT_CAPSULE_TYPE,
+    DELIVERY_MODES,
+    pack_path_with_manifest,
+    unpack_payload,
+    verify_manifest_matches_payload,
+)
 from agentcapsule.policy import DEFAULT_POLICY, CapsulePolicy, load_policy, policy_to_dict
 from agentcapsule.scanner import scan_text as _scan_text
 from agentcapsule.signing import (
@@ -214,12 +220,19 @@ def verify_capsule(
 
     payload = verify_envelope(envelope, encryption_key=_encryption_key_from_env_optional(encryption_key_env))
     policy_obj.check_payload(payload)
+    capsule_manifest = envelope.capsule_manifest
+    verify_manifest_matches_payload(
+        manifest=capsule_manifest,
+        payload=payload,
+        content_type=envelope.content_type,
+        filename=envelope.headers.get("filename"),
+    )
     return VerificationResult(
         payload=payload,
         payload_sha256=envelope.payload_sha256,
         codec=envelope.codec,
         content_type=envelope.content_type,
-        capsule_manifest=envelope.capsule_manifest,
+        capsule_manifest=capsule_manifest,
         signature_mode=envelope.headers.get("signature", SIGNATURE_NONE),
         signature_trust=trust.to_dict() if trust else None,
     )
@@ -261,11 +274,14 @@ def scan_text(
     *,
     policy: CapsulePolicy | str | Path | None = None,
     signature_registry: SignatureRegistry | str | Path | None = None,
+    encryption_key_env: str | None = None,
 ):
+    encryption_key = _encryption_key_from_env_optional(encryption_key_env)
     return _scan_text(
         text,
         policy=_resolve_policy(policy),
         signature_registry=_resolve_signature_registry(signature_registry),
+        encryption_key=encryption_key,
     )
 
 
@@ -294,12 +310,19 @@ def ingest_messages(
 
     message_texts = _coerce_messages(messages)
     ingest_scan_report = None
+    scan_encryption_key = None
+    if encryption_key_env:
+        try:
+            scan_encryption_key = _encryption_key_from_env(encryption_key_env)
+        except CapsuleError:
+            scan_encryption_key = None
     if include_scan_report:
         ingest_scan_report = _scan_report(
             _scan_text(
                 "\n".join(message_texts),
                 policy=policy_obj,
                 signature_registry=registry,
+                encryption_key=scan_encryption_key,
             ),
             policy_obj,
         )
@@ -534,7 +557,6 @@ def _signature_trust(envelope, signature_registry: SignatureRegistry | None) -> 
     return signature_registry.resolve(
         key_id=envelope.headers.get("signature_key_id"),
         fingerprint=envelope.headers.get("signature_public_key_fingerprint"),
-        now_iso=envelope.headers.get("created_at"),
     )
 
 

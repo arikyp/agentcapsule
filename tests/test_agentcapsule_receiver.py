@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import json
 import tempfile
@@ -6,7 +7,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 from agentcapsule.envelope import build_envelope, parse_envelope, render_envelope
-from agentcapsule.receiver import ingest_messages
+from agentcapsule.errors import CapsuleVerificationError
+from agentcapsule.manifest import BUNDLE_CONTENT_TYPE, BUNDLE_FORMAT
+from agentcapsule.receiver import ingest_messages, verify_capsule
 
 
 class AgentCapsuleReceiverTests(unittest.TestCase):
@@ -117,6 +120,64 @@ class AgentCapsuleReceiverTests(unittest.TestCase):
             self.assertIn("payload_sha256", result.references[0]["error"])
             self.assertTrue(result.has_failures)
             self.assertEqual(result.to_dict()["rejected_reasons_by_type"], {"REFERENCE_PAYLOAD_HASH_MISMATCH": 1})
+
+    def test_verify_rejects_manifest_payload_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            capsule = root / "capsule.txt"
+            payload = b"actual payload"
+            bundle = {
+                "format": BUNDLE_FORMAT,
+                "files": [
+                    {
+                        "path": "actual.txt",
+                        "size": len(payload),
+                        "sha256": hashlib.sha256(payload).hexdigest(),
+                        "content_base64": base64.b64encode(payload).decode("ascii"),
+                    }
+                ],
+            }
+            envelope = build_envelope(
+                json.dumps(bundle, sort_keys=True, separators=(",", ":")).encode("utf-8"),
+                content_type=BUNDLE_CONTENT_TYPE,
+                manifest_files=[
+                    {
+                        "path": "claimed.txt",
+                        "sha256": hashlib.sha256(b"claimed").hexdigest(),
+                        "bytes": len(b"claimed"),
+                    }
+                ],
+            )
+            capsule.write_text(render_envelope(envelope), encoding="utf-8")
+
+            with self.assertRaisesRegex(CapsuleVerificationError, "capsule manifest files do not match bundle payload files"):
+                verify_capsule(capsule)
+
+    def test_ingest_with_encrypted_capsule_and_decryption_key_keeps_scan_consistent(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            out = root / "sandbox"
+            key = b"k" * 32
+            encoded_key = base64.b64encode(key).decode("ascii")
+            capsule_text = render_envelope(
+                build_envelope(
+                    b"secret payload",
+                    filename="secret.txt",
+                    encryption_key=key,
+                )
+            )
+            with patch.dict("os.environ", {"CAPSULE_KEY": encoded_key}, clear=False):
+                result = ingest_messages(
+                    messages=[{"content": capsule_text}],
+                    out_dir=out,
+                    encryption_key_env="CAPSULE_KEY",
+                )
+
+            payload = result.to_dict()
+            self.assertEqual(payload["disposition"], "allow")
+            self.assertEqual(payload["scan_report"]["disposition"], "allow")
+            self.assertEqual(payload["scan_report"]["invalid_capsules"], 0)
+            self.assertEqual(result.inline_capsules[0]["status"], "unpacked")
 
 
 if __name__ == "__main__":

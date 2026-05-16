@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -67,6 +68,7 @@ class SignatureRegistry:
         fingerprint: str | None,
         now_iso: str | None = None,
     ) -> SignatureTrustResult:
+        now_dt = _parse_iso8601(now_iso, field_name="now_iso") if now_iso else datetime.now(UTC)
         if not key_id and not fingerprint:
             return SignatureTrustResult("untrusted", "missing key id and fingerprint", key_id, fingerprint)
 
@@ -89,17 +91,19 @@ class SignatureRegistry:
                 key.domain,
                 key.public_key,
             )
-        if key.expires_at and now_iso and now_iso > key.expires_at:
-            return SignatureTrustResult(
-                "expired",
-                f"key expired at {key.expires_at}",
-                key.key_id,
-                key.fingerprint,
-                key.publisher,
-                key.organization,
-                key.domain,
-                key.public_key,
-            )
+        if key.expires_at:
+            expires_dt = _parse_iso8601(key.expires_at, field_name="expires_at")
+            if now_dt > expires_dt:
+                return SignatureTrustResult(
+                    "expired",
+                    f"key expired at {key.expires_at}",
+                    key.key_id,
+                    key.fingerprint,
+                    key.publisher,
+                    key.organization,
+                    key.domain,
+                    key.public_key,
+                )
         return SignatureTrustResult(
             "trusted",
             "key trusted by local registry",
@@ -176,9 +180,13 @@ def _trusted_key_from_mapping(data: Any, base_dir: Path) -> TrustedKey:
     expires_at = data.get("expires_at")
     if expires_at is not None and not isinstance(expires_at, str):
         raise CapsulePolicyError("signature registry expires_at must be a string")
+    if isinstance(expires_at, str):
+        _parse_iso8601(expires_at, field_name="expires_at")
     revoked_at = data.get("revoked_at")
     if revoked_at is not None and not isinstance(revoked_at, str):
         raise CapsulePolicyError("signature registry revoked_at must be a string")
+    if isinstance(revoked_at, str):
+        _parse_iso8601(revoked_at, field_name="revoked_at")
     note = data.get("note")
     if note is not None and not isinstance(note, str):
         raise CapsulePolicyError("signature registry note must be a string")
@@ -217,3 +225,14 @@ def _optional_public_key(data: dict[str, Any], base_dir: Path) -> bytes | None:
     if public_key_path is not None:
         raise CapsulePolicyError("signature registry public_key_path must be a string")
     return None
+
+
+def _parse_iso8601(value: str, *, field_name: str) -> datetime:
+    normalized = value.replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError as exc:
+        raise CapsulePolicyError(f"signature registry {field_name} must be an ISO-8601 timestamp") from exc
+    if parsed.tzinfo is None:
+        raise CapsulePolicyError(f"signature registry {field_name} must include timezone information")
+    return parsed.astimezone(UTC)

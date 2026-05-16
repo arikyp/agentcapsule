@@ -80,9 +80,9 @@ Optional hardening:
 
 - HMAC-SHA256 signatures.
 - Ed25519 signatures and trust registry checks.
-- AES-256-GCM payload encryption.
-- Zstandard compression.
-- Resumable reference fetching.
+- AES-256-GCM payload encryption (`agentcapsule[signing]`, experimental optional extra).
+- Zstandard compression (`agentcapsule[compression]`, experimental optional extra).
+- Resumable reference fetching (`agentcapsule[fetch]`, experimental optional extra).
 
 ## Current Limitations
 
@@ -90,7 +90,7 @@ Optional hardening:
 - No remote/global key-discovery protocol yet: receivers must supply local trust inputs.
 - No first-party JS/TS reference implementation yet.
 - Governance output is JSON-first; there is no built-in long-running dashboard service.
-- Reference fetching requires optional install extras (`agentcapsule[fetch]` or `agentcapsule[all]`).
+- Encryption, compression, and reference fetching are optional extras and currently experimental surfaces.
 
 ## Typical Flow
 
@@ -113,6 +113,14 @@ Full optional capabilities:
 
 ```bash
 python3 -m pip install "agentcapsule[all]"
+```
+
+Individual optional extras:
+
+```bash
+python3 -m pip install "agentcapsule[signing]"
+python3 -m pip install "agentcapsule[compression]"
+python3 -m pip install "agentcapsule[fetch]"
 ```
 
 Reference fetching support only:

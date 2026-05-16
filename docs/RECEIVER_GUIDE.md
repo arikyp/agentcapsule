@@ -30,6 +30,8 @@ For CI/governance gates, use strict mode:
 agentcapsule ingest thread.txt --out ./sandbox --policy policy.json --json --strict
 ```
 
+`--strict` exits non-zero when ingest disposition resolves to `block`.
+
 Inspect effective policy and fetch defaults:
 
 ```bash
@@ -64,4 +66,5 @@ Always apply this order:
   `accepted`, `stage`, `reason_code`, and `reason_message`.
 - For HMAC signatures, pass `key_env`.
 - For Ed25519 signatures, use `ed25519_public_key` and/or `signature_registry`.
+- Encryption, compression, and reference fetching are optional experimental extras.
 - Reference fetching requires `agentcapsule[fetch]` (or `agentcapsule[all]`) so `httpx` is installed.

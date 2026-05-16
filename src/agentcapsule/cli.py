@@ -19,7 +19,13 @@ from agentcapsule.fetcher import (
     DEFAULT_MAX_REDIRECTS,
     DEFAULT_TIMEOUT_SECONDS,
 )
-from agentcapsule.manifest import DEFAULT_CAPSULE_TYPE, DELIVERY_MODES, pack_path_with_manifest, unpack_payload
+from agentcapsule.manifest import (
+    DEFAULT_CAPSULE_TYPE,
+    DELIVERY_MODES,
+    pack_path_with_manifest,
+    unpack_payload,
+    verify_manifest_matches_payload,
+)
 from agentcapsule.policy import DEFAULT_POLICY, CapsulePolicy, load_policy, policy_to_dict
 from agentcapsule.registry import list_codecs
 from agentcapsule.receiver import ingest_messages as ingest_messages_api
@@ -121,6 +127,7 @@ def main(argv: list[str] | None = None) -> int:
     scan_parser.add_argument("text_file")
     scan_parser.add_argument("--policy", help="JSON policy file")
     scan_parser.add_argument("--signature-registry", help="local JSON signature trust registry")
+    scan_parser.add_argument("--encryption-key-env", help="environment variable containing decryption key")
     scan_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
     scan_parser.add_argument("--audit-json", action="store_true", help="emit structured audit event JSON")
 
@@ -140,7 +147,7 @@ def main(argv: list[str] | None = None) -> int:
         "--fail-on-invalid",
         dest="strict_ingest",
         action="store_true",
-        help="exit non-zero when malformed blocks or invalid/failed capsule ingestion is detected",
+        help="exit non-zero when disposition is block or malformed/invalid/failed capsule ingestion is detected",
     )
     ingest_parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
 
@@ -281,6 +288,12 @@ def main(argv: list[str] | None = None) -> int:
             policy.check_signature_trust(trust.status if trust else None)
             payload = verify_envelope(envelope, encryption_key=encryption_key)
             policy.check_payload(payload)
+            verify_manifest_matches_payload(
+                manifest=envelope.capsule_manifest,
+                payload=payload,
+                content_type=envelope.content_type,
+                filename=envelope.headers.get("filename"),
+            )
             result = {
                 "verification": "ok",
                 "signature_verification": "ok"
@@ -319,6 +332,12 @@ def main(argv: list[str] | None = None) -> int:
             policy.check_signature_trust(trust.status if trust else None)
             payload = verify_envelope(envelope, encryption_key=encryption_key)
             policy.check_payload(payload)
+            verify_manifest_matches_payload(
+                manifest=envelope.capsule_manifest,
+                payload=payload,
+                content_type=envelope.content_type,
+                filename=envelope.headers.get("filename"),
+            )
             written = unpack_payload(
                 payload,
                 envelope.content_type,
@@ -361,6 +380,7 @@ def main(argv: list[str] | None = None) -> int:
                 Path(args.text_file).read_text(encoding="utf-8"),
                 policy=policy,
                 signature_registry=signature_registry,
+                encryption_key=_encryption_key_from_args(args),
             )
             scan_payload = _scan_report(result, policy)
             if args.audit_json:
@@ -395,8 +415,8 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"unpacked files: {len(result.unpacked_files)}")
                 for file_path in result.unpacked_files:
                     print(file_path)
-            if args.strict_ingest and result.has_failures:
-                print(_ingest_strict_failure_summary(result), file=sys.stderr)
+            if args.strict_ingest and (result.has_failures or payload.get("disposition") == "block"):
+                print(_ingest_strict_failure_summary(result, disposition=str(payload.get("disposition"))), file=sys.stderr)
                 return 2
             return 0
         if args.command == "policy":
@@ -699,6 +719,12 @@ def _inspect_envelope(
 
         payload = verify_envelope(envelope, encryption_key=encryption_key)
         policy.check_payload(payload)
+        verify_manifest_matches_payload(
+            manifest=envelope.capsule_manifest,
+            payload=payload,
+            content_type=envelope.content_type,
+            filename=envelope.headers.get("filename"),
+        )
         result["verification_status"] = "ok"
         result["payload_bytes"] = len(payload)
     except CapsuleError as exc:
@@ -828,7 +854,6 @@ def _signature_trust(envelope, signature_registry: SignatureRegistry | None) -> 
     return signature_registry.resolve(
         key_id=envelope.headers.get("signature_key_id"),
         fingerprint=envelope.headers.get("signature_public_key_fingerprint"),
-        now_iso=envelope.headers.get("created_at"),
     )
 
 
@@ -898,16 +923,18 @@ def _codec_to_dict(codec) -> dict[str, object]:
     }
 
 
-def _ingest_strict_failure_summary(result) -> str:
+def _ingest_strict_failure_summary(result, *, disposition: str | None = None) -> str:
     invalid_inline = sum(1 for item in result.inline_capsules if item.get("status") == "invalid")
     invalid_references = sum(1 for item in result.references if item.get("status") == "invalid")
     failed_references = sum(1 for item in result.references if item.get("status") == "failed")
+    disposition_note = f", disposition={disposition}" if disposition else ""
     return (
         "ingest strict mode failed: "
         f"malformed_blocks={result.malformed_blocks}, "
         f"invalid_inline={invalid_inline}, "
         f"invalid_references={invalid_references}, "
         f"failed_references={failed_references}"
+        f"{disposition_note}"
     )
 
 

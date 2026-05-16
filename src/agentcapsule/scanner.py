@@ -6,6 +6,7 @@ import re
 from dataclasses import dataclass, field
 
 from agentcapsule.envelope import BEGIN_MARKER, END_MARKER, parse_envelope, verify_envelope
+from agentcapsule.manifest import verify_manifest_matches_payload
 from agentcapsule.policy import DEFAULT_POLICY, CapsulePolicy
 from agentcapsule.signing import SIGNATURE_ED25519
 from agentcapsule.trust import SignatureRegistry, SignatureTrustResult
@@ -54,6 +55,7 @@ def scan_text(
     *,
     policy: CapsulePolicy = DEFAULT_POLICY,
     signature_registry: SignatureRegistry | None = None,
+    encryption_key: bytes | None = None,
 ) -> ScanResult:
     reasons: list[str] = []
     findings: list[ScanFinding] = []
@@ -85,8 +87,28 @@ def scan_text(
                     reasons.append(trust.reason)
                     findings.append(_finding(text, finding_type, risk, trust.reason, begin, end))
                 policy.check_signature_trust(trust.status if trust else None)
-            payload = verify_envelope(envelope)
+            if envelope.headers.get("encryption", "none") != "none" and encryption_key is None:
+                reasons.append("encrypted capsule could not be decrypted during scan")
+                findings.append(
+                    _finding(
+                        text,
+                        "capsule_encrypted_no_key",
+                        "medium",
+                        "encrypted capsule could not be decrypted during scan",
+                        begin,
+                        end,
+                    )
+                )
+                offset = end + len(END_MARKER)
+                continue
+            payload = verify_envelope(envelope, encryption_key=encryption_key)
             policy.check_payload(payload)
+            verify_manifest_matches_payload(
+                manifest=envelope.capsule_manifest,
+                payload=payload,
+                content_type=envelope.content_type,
+                filename=envelope.headers.get("filename"),
+            )
             valid += 1
         except Exception as exc:  # scanner must be resilient
             invalid += 1
@@ -161,7 +183,7 @@ def _very_long_dense_line_spans(text: str) -> list[tuple[int, int]]:
 def _risk_level(invalid: int, dense_blocks: list[re.Match[str]], reasons: list[str]) -> str:
     if invalid or any("invisible" in reason or "revoked" in reason for reason in reasons):
         return "high"
-    if dense_blocks or any("dense" in reason or "untrusted" in reason for reason in reasons):
+    if dense_blocks or any("dense" in reason or "untrusted" in reason or "encrypted" in reason for reason in reasons):
         return "medium"
     return "low"
 

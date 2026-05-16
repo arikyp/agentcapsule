@@ -47,6 +47,27 @@ class AgentCapsuleScanTests(unittest.TestCase):
         self.assertEqual(finding["type"], "dense_base64_like")
         self.assertEqual(finding["line"], 2)
 
+    def test_scan_encrypted_capsule_without_key_reports_review(self) -> None:
+        key = b"k" * 32
+        text = render_envelope(build_envelope(b"payload", encryption_key=key))
+
+        result = scan_text(text)
+
+        self.assertEqual(result.risk_level, "medium")
+        self.assertEqual(result.invalid_capsules, 0)
+        self.assertEqual(result.valid_capsules, 0)
+        self.assertEqual(result.findings[0].finding_type, "capsule_encrypted_no_key")
+
+    def test_scan_encrypted_capsule_with_key_verifies_successfully(self) -> None:
+        key = b"k" * 32
+        text = render_envelope(build_envelope(b"payload", encryption_key=key))
+
+        result = scan_text(text, encryption_key=key)
+
+        self.assertEqual(result.risk_level, "low")
+        self.assertEqual(result.valid_capsules, 1)
+        self.assertEqual(result.invalid_capsules, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

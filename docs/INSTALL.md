@@ -36,6 +36,17 @@ If receivers need to fetch reference capsules from `capsule_uri`, install fetch 
 python3 -m pip install "agentcapsule[fetch]"
 ```
 
+Optional experimental extras:
+
+- `agentcapsule[signing]`: Ed25519 signing + AES-256-GCM encryption support via `cryptography`.
+- `agentcapsule[compression]`: Zstandard compression support.
+- `agentcapsule[fetch]`: reference capsule fetching support via `httpx`.
+- `agentcapsule[all]`: installs all optional extras in one step.
+
+```bash
+python3 -m pip install "agentcapsule[all]"
+```
+
 ## pipx Install
 
 For a user-local install on machines where you do not want to manage a project

@@ -1,3 +1,5 @@
+import base64
+import importlib.util
 import hashlib
 import json
 import os
@@ -10,6 +12,9 @@ from unittest.mock import patch
 
 from agentcapsule.cli import main
 from agentcapsule.envelope import build_envelope, render_envelope
+
+HAS_CRYPTOGRAPHY = importlib.util.find_spec("cryptography") is not None
+HAS_ZSTANDARD = importlib.util.find_spec("zstandard") is not None
 
 
 class AgentCapsuleCliTests(unittest.TestCase):
@@ -103,6 +108,62 @@ class AgentCapsuleCliTests(unittest.TestCase):
             self.assertNotEqual(status, 0)
             self.assertEqual(stdout, "")
             self.assertIn("signature verification failed", stderr)
+
+    @unittest.skipUnless(HAS_CRYPTOGRAPHY, "cryptography optional signing extra is not installed")
+    def test_encrypted_capsule_pack_verify_unpack_roundtrip(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "payload.txt"
+            capsule = root / "capsule.txt"
+            out = root / "decoded"
+            source.write_text("secret state", encoding="utf-8")
+            encoded_key = base64.b64encode(b"k" * 32).decode("ascii")
+            with patch.dict(os.environ, {"CAPSULE_ENC_KEY": encoded_key}, clear=False):
+                self.assertEqual(
+                    _run_cli(
+                        [
+                            "pack",
+                            str(source),
+                            "--out",
+                            str(capsule),
+                            "--encrypt",
+                            "aes-256-gcm",
+                            "--encryption-key-env",
+                            "CAPSULE_ENC_KEY",
+                        ]
+                    ),
+                    0,
+                )
+                self.assertEqual(_run_cli(["verify", str(capsule), "--encryption-key-env", "CAPSULE_ENC_KEY"]), 0)
+                self.assertEqual(
+                    _run_cli(["unpack", str(capsule), "--out", str(out), "--encryption-key-env", "CAPSULE_ENC_KEY"]),
+                    0,
+                )
+
+            self.assertEqual((out / "payload.txt").read_text(encoding="utf-8"), "secret state")
+
+    @unittest.skipUnless(HAS_ZSTANDARD, "zstandard optional compression extra is not installed")
+    def test_compressed_capsule_pack_verify_roundtrip(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "payload.txt"
+            capsule = root / "capsule.txt"
+            source.write_text("abc123\n" * 500, encoding="utf-8")
+
+            self.assertEqual(
+                _run_cli(
+                    [
+                        "pack",
+                        str(source),
+                        "--out",
+                        str(capsule),
+                        "--compression",
+                        "zstd",
+                    ]
+                ),
+                0,
+            )
+            self.assertEqual(_run_cli(["verify", str(capsule)]), 0)
 
     def test_cli_returns_nonzero_on_invalid_capsule(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -381,6 +442,20 @@ class AgentCapsuleCliTests(unittest.TestCase):
             self.assertNotEqual(status, 0)
             self.assertIn("references: 1", stdout)
             self.assertIn("strict mode failed", stderr)
+
+    def test_ingest_strict_returns_nonzero_on_block_disposition(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            transcript = root / "thread.txt"
+            out = root / "decoded"
+            transcript.write_text("safe\u200btext", encoding="utf-8")
+
+            status, stdout, stderr = _capture_cli(["ingest", str(transcript), "--out", str(out), "--json", "--strict"])
+
+            self.assertNotEqual(status, 0)
+            payload = json.loads(stdout)
+            self.assertEqual(payload["disposition"], "block")
+            self.assertIn("disposition=block", stderr)
 
     def test_policy_show_defaults_json(self) -> None:
         status, stdout, stderr = _capture_cli(["policy", "show", "--json"])

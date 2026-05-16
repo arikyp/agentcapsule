@@ -15,6 +15,14 @@ python3 -m pip install -e .
 This exposes `agentcapsule` and `capsule` commands from `pyproject.toml`.
 `agentcapsule` is the primary Agent Capsule command.
 
+Optional experimental extras can be installed with:
+
+```bash
+python3 -m pip install -e ".[all]"
+```
+
+or individually with `.[signing]`, `.[compression]`, or `.[fetch]`.
+
 ## Pack And Verify A Capsule
 
 Create a sample payload:

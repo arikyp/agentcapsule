@@ -49,6 +49,18 @@ class AgentCapsuleBackendTests(unittest.TestCase):
             with self.assertRaisesRegex(CapsuleUnpackError, "unsafe bundle path"):
                 unpack_bundle(json.dumps(bundle).encode("utf-8"), Path(tmp))
 
+    def test_pack_directory_rejects_symlink_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "source"
+            source.mkdir()
+            outside = root / "outside.txt"
+            outside.write_text("secret outside", encoding="utf-8")
+            (source / "link.txt").symlink_to(outside)
+
+            with self.assertRaisesRegex(CapsuleUnpackError, "symlink files are not allowed"):
+                pack_directory(source)
+
 
 if __name__ == "__main__":
     unittest.main()

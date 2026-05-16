@@ -26,6 +26,13 @@ class AgentCapsuleCompressionTests(unittest.TestCase):
             with self.assertRaisesRegex(CapsuleVerificationError, "exceeded max output size"):
                 decompress_payload(compressed, mode=COMPRESSION_ZSTD)
 
+    def test_zstd_decompress_rejects_invalid_limit_env(self) -> None:
+        payload = (b"abc123\n" * 1000)
+        compressed, _ = compress_payload(payload, mode=COMPRESSION_ZSTD)
+        with patch.dict(os.environ, {"AGENTCAPSULE_ZSTD_MAX_OUTPUT_SIZE": "not-an-int"}, clear=False):
+            with self.assertRaisesRegex(CapsuleVerificationError, "invalid AGENTCAPSULE_ZSTD_MAX_OUTPUT_SIZE value"):
+                decompress_payload(compressed, mode=COMPRESSION_ZSTD)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -7,6 +7,8 @@ from io import StringIO
 from pathlib import Path
 
 from agentcapsule.cli import main
+from agentcapsule.envelope import build_envelope, render_envelope
+from agentcapsule.signing import load_private_key_file, sign_envelope_ed25519
 from agentcapsule.trust import registry_entry_from_public_key_file
 
 
@@ -252,6 +254,39 @@ class AgentCapsuleRegistryTests(unittest.TestCase):
             self.assertEqual(event["disposition"], "allow")
             self.assertEqual(event["result"]["signature_trust"]["status"], "trusted")
 
+    def test_backdated_capsule_cannot_bypass_expired_registry_key(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            private_key, public_key = _generate_keys(root)
+            registry = _write_registry(
+                root,
+                public_key,
+                key_id="publisher-prod",
+                publisher="Example Publisher",
+                expires_at="2020-01-01T00:00:00Z",
+            )
+            policy = _write_policy(root, require_registry=True)
+            capsule = root / "capsule.txt"
+            envelope = build_envelope(
+                b"trusted registry state",
+                created_at="2019-01-01T00:00:00Z",
+            )
+            signed = sign_envelope_ed25519(
+                envelope,
+                private_key_bytes=load_private_key_file(private_key),
+                key_id="publisher-prod",
+                inline_public_key=False,
+            )
+            capsule.write_text(render_envelope(signed), encoding="utf-8")
+
+            status, stdout, stderr = _capture_cli(
+                ["verify", str(capsule), "--policy", str(policy), "--signature-registry", str(registry)]
+            )
+
+            self.assertNotEqual(status, 0)
+            self.assertEqual(stdout, "")
+            self.assertIn("signature key is not trusted by local registry", stderr)
+
 
 def _generate_keys(root: Path) -> tuple[Path, Path]:
     private_key = root / "publisher.key"
@@ -267,19 +302,21 @@ def _write_registry(
     key_id: str,
     publisher: str | None = None,
     status: str = "trusted",
+    expires_at: str | None = None,
 ) -> Path:
     registry = root / "registry.json"
+    entry = registry_entry_from_public_key_file(
+        key_id=key_id,
+        public_key_path=public_key,
+        publisher=publisher,
+        status=status,
+    )
+    if expires_at:
+        entry["expires_at"] = expires_at
     registry.write_text(
         json.dumps(
             {
-                "keys": [
-                    registry_entry_from_public_key_file(
-                        key_id=key_id,
-                        public_key_path=public_key,
-                        publisher=publisher,
-                        status=status,
-                    )
-                ]
+                "keys": [entry]
             }
         ),
         encoding="utf-8",

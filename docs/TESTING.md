@@ -13,6 +13,15 @@ python3 -m compileall src scripts tests
 sh scripts/release_check.sh
 ```
 
+For optional experimental extras (`signing`, `compression`, `fetch`), run the
+same path with `agentcapsule[all]`:
+
+```bash
+python3 -m pip install -e ".[all]"
+PYTHONPATH=src python3 -m unittest discover -s tests
+sh scripts/release_check.sh
+```
+
 Any test or demo path that exercises Ed25519 signing or registry-trusted
 verification must install the optional signing extra first:
 
