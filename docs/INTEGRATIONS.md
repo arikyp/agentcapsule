@@ -8,12 +8,12 @@ Agent Capsule recommends one receiver path for all frameworks:
 - Verify policy and hashes.
 - Unpack to a sandbox.
 
-Use the high-level API:
+Use the stable framework adapter:
 
 ```python
-from agentcapsule import ingest_messages
+from agentcapsule import ingest_for_framework
 
-result = ingest_messages(
+result = ingest_for_framework(
     messages=thread_messages,
     out_dir="./sandbox",
     policy="./policy.json",
@@ -39,15 +39,19 @@ Use the ingest report top-level fields for orchestration and CI decisions:
 - `rejected_reasons_by_type`
 - `effective_policy`
 
+`ingest_for_framework` returns a `FrameworkIngestResult` with a stable
+contract: `report_type=agent_capsule_framework_ingest_report` and
+`schema_version=1`.
+
 ## LangGraph
 
 Typical pattern: call `ingest_messages` inside the receiver node and store outputs in graph state.
 
 ```python
 def receive_capsules(state: dict) -> dict:
-    from agentcapsule import ingest_messages
+    from agentcapsule import ingest_for_framework
 
-    result = ingest_messages(
+    result = ingest_for_framework(
         messages=state.get("messages", []),
         out_dir="./sandbox",
         policy="./policy.json",
@@ -74,9 +78,9 @@ Typical pattern: expose a receiver tool that runs ingestion and returns unpacked
 
 ```python
 def ingest_handoff(messages: list[str]) -> list[str]:
-    from agentcapsule import ingest_messages
+    from agentcapsule import ingest_for_framework
 
-    result = ingest_messages(messages=messages, out_dir="./sandbox", policy="./policy.json")
+    result = ingest_for_framework(messages=messages, out_dir="./sandbox", policy="./policy.json")
     return result.unpacked_files
 ```
 

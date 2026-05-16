@@ -30,9 +30,9 @@ agentcapsule ingest thread.txt --out ./sandbox --policy ./policy.json --json --s
 Python:
 
 ```python
-from agentcapsule import ingest_messages
+from agentcapsule import ingest_for_framework
 
-result = ingest_messages(
+result = ingest_for_framework(
     messages=thread_messages,
     out_dir="./sandbox",
     policy="./policy.json",
