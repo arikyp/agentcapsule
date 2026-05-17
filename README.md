@@ -48,6 +48,15 @@ print(result.unpacked_files)
 Normal agent channels are lossy for machine payloads (truncation, formatting drift, silent edits).
 Agent Capsule turns handoffs into verifiable artifacts.
 
+## Core Features
+
+- Verifiable payload integrity: envelope + payload hash checks before use.
+- Receiver-first governance: local policy gates, stable reason codes, JSON-first ingest output.
+- Safe consumption path: deterministic scan, verify, and sandbox unpack.
+- Flexible delivery: `inline`, `attachment`, or `reference` descriptors with fetch + hash verification.
+- Trust controls: unsigned mode, HMAC, or Ed25519 with optional local trust registry resolution.
+- Framework-ready API: `ingest_for_framework(...)` returns normalized machine-readable reports.
+
 ## Protocol Layers
 
 - Capsule: exact payload bytes + metadata + hash/signature context.
@@ -138,6 +147,7 @@ python3 -m pip install "agentcapsule[fetch]"
 - [docs/RECEIVER_GUIDE.md](docs/RECEIVER_GUIDE.md)
 - [docs/INSTALL.md](docs/INSTALL.md)
 - [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)
+- [docs/AGENT_CAPSULE_TESTING_METHODOLOGY_AND_RESULTS.md](docs/AGENT_CAPSULE_TESTING_METHODOLOGY_AND_RESULTS.md)
 - [docs/AGENT_CAPSULE_PROTOCOL_V0.md](docs/AGENT_CAPSULE_PROTOCOL_V0.md)
 - [docs/AGENT_CAPSULE_ED25519_DESIGN.md](docs/AGENT_CAPSULE_ED25519_DESIGN.md)
 - [docs/AGENT_CAPSULE_AUDIT_LOG_V0.md](docs/AGENT_CAPSULE_AUDIT_LOG_V0.md)

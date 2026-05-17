@@ -11,6 +11,7 @@ Start here:
 - [AGENT_CAPSULE_THREAT_MODEL.md](AGENT_CAPSULE_THREAT_MODEL.md): security assumptions and limits.
 - [RELEASE_DISTRIBUTION.md](RELEASE_DISTRIBUTION.md): release and PyPI checklist.
 - [TESTING.md](TESTING.md): test commands and verification flow.
+- [AGENT_CAPSULE_TESTING_METHODOLOGY_AND_RESULTS.md](AGENT_CAPSULE_TESTING_METHODOLOGY_AND_RESULTS.md): methodology, benchmark structure, and baseline results snapshot.
 
 Supporting design notes:
 
